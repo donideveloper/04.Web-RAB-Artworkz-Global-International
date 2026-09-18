@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Material & Price &mdash; Web RAB</title>
+<title>Material &mdash; Web RAB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="assets/css/rab.css">
 <script>(function(){try{var t=localStorage.getItem('rab_theme')||'light';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 </head>
-<body data-page="material-price" data-title="Material & Price">
+<body data-page="material-price" data-title="Material">
 
 <div class="app">
   <div class="side-backdrop" id="side-backdrop"></div>
@@ -25,60 +25,138 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
 
 $('#rolenote').innerHTML = can('material-price','edit')
-  ? roleNote('Role <b>'+curRole()+'</b>: dapat menambah material dan mencatat harga baru. Kolom <b>Status Harga</b> menandai harga Terkini, Kedaluwarsa (lebih dari 90 hari), atau Belum Ada Harga.')
-  : roleNote('Role <b>'+curRole()+'</b>: halaman ini hanya baca. Tombol Add, Edit, dan Add New Price disembunyikan sesuai FSD &mdash; Perbedaan Tampilan Antar Role.');
+  ? roleNote('Role <b>'+curRole()+'</b>: dapat menambah material dan mencatat harga baru. Kolom <b>Keterangan</b> mengikuti kolom KETERANGAN pada sheet Bahan &amp; Upah (dasar faktor konversi dan isi kemasan). Kolom <b>Harga Beli</b> adalah harga per satuan beli dari supplier; <b>Harga Satuan Pakai</b> = Harga Beli &divide; Faktor Konversi. Kolom <b>Status Harga</b> dihitung dari umur harga terhadap Setting <b>SET-005 &mdash; Batas Umur Harga Material ('+priceAgeLimit()+' hari)</b>, bukan angka tetap pada program.')
+  : roleNote('Role <b>'+curRole()+'</b>: halaman ini hanya baca. Tombol Add, Edit, dan Add New Price disembunyikan sesuai FSD &mdash; Perbedaan Tampilan Antar Role. Status Harga mengikuti Setting SET-005 ('+priceAgeLimit()+' hari).');
 
+/* rev-5 poin 3 (P-22): pilihan Brand dan Supplier dibatasi oleh pemetaan pada
+   Specification terpilih. Bila spesifikasi belum dipetakan, seluruh pilihan dibuka. */
+function specOf(d){
+  if (!d.kategori || !d.type || !d.spec) return null;
+  return DB.SPEC.find(sp => sp.type === d.kategori+'.'+d.type && sp.kode === d.spec) || null;
+}
 const SEG = {
   kategori: ()=>DB.CATEGORY.map(c=>({v:c.kode, l:c.kode+' — '+c.nama})),
-  type:     d=>DB.TYPE.filter(t=>!d.kategori||t.kategori===d.kategori).map(t=>({v:t.kode.split('.')[1]||'01', l:(t.kode.split('.')[1]||'01')+' — '+t.nama})),
-  spec:     ()=>['00','01','02','03','04','05','06','07','08'].map(v=>({v, l:v})),
-  brand:    ()=>DB.BRAND.map(b=>({v:b.kode, l:b.kode+' — '+b.nama})),
+  type:     d=>{
+    const list = DB.TYPE.filter(t=>!d.kategori || t.kategori===d.kategori);
+    return list.length
+      ? list.map(t=>({v:t.kode.split('.')[1]||'01', l:(t.kode.split('.')[1]||'01')+' — '+t.nama}))
+      : [{v:'', l:'Category ini belum memiliki Type'}];
+  },
+  /* rev-6 poin 12 (P-48): Specification kini benar-benar turunan dari Type
+     terpilih — isinya dibaca dari master Kategori (DB.SPEC, tabel
+     TB_M_SPEC), bukan lagi daftar angka tetap 00..08.
+     Bila type tersebut belum memiliki spesifikasi terdaftar, disediakan satu
+     pilihan '00 — Tanpa spesifikasi' agar kode material tetap dapat dibentuk. */
+  spec:     d=>{
+    const kt = (d||{}).kategori, tp = (d||{}).type;
+    if (!kt || !tp) return [{v:'', l:'Pilih Category dan Type dahulu'}];
+    const list = DB.SPEC.filter(sp => sp.type === kt+'.'+tp);
+    return list.length
+      ? list.map(sp=>({v:sp.kode, l:sp.kode+' — '+sp.nama}))
+      : [{v:'00', l:'00 — Tanpa spesifikasi'}];
+  },
+  brand:    d=>{
+    const sp = specOf(d||{});
+    const list = (sp && (sp.brands||[]).length) ? DB.BRAND.filter(b=>sp.brands.includes(b.kode)) : DB.BRAND;
+    return list.map(b=>({v:b.kode, l:b.kode+' — '+b.nama}));
+  },
+  supplier: d=>{
+    const sp = specOf(d||{});
+    const list = (sp && (sp.sups||[]).length) ? DB.SUPPLIER.filter(x=>sp.sups.includes(x.kode)) : DB.SUPPLIER;
+    return list.map(x=>({v:x.kode, l:x.kode+' — '+x.nama}));
+  },
   varian:   ()=>['00','01','02'].map(v=>({v, l:v}))
 };
 const buildCode = d => [d.kategori||'---', d.type||'--', d.spec||'--', d.brand||'--', d.varian||'--'].join('.');
 
+/* rev-6 poin 13 (P-49): kelima segmen pembentuk kode diberi tanda seg:true
+   sehingga tampil berdampingan dalam satu baris, mengikuti urutan kode
+   Category . Type . Specification . Brand . Varian. Sebelumnya Varian
+   terlempar ke baris berikutnya sehingga jauh dari Specification. */
 const matForm = [
-  {key:'kategori', label:'Category', type:'select', required:true, options:SEG.kategori},
-  {key:'type',     label:'Type',     type:'select', required:true, options:SEG.type},
-  {key:'spec',     label:'Specification', type:'select', required:true, options:SEG.spec},
-  {key:'brand',    label:'Brand',    type:'select', required:true, options:SEG.brand},
-  {key:'varian',   label:'Varian',   type:'select', required:true, options:SEG.varian},
+  {key:'kategori', label:'Category', type:'select', required:true, options:SEG.kategori, seg:true},
+  {key:'type',     label:'Type',     type:'select', required:true, options:SEG.type, seg:true,
+   help:'Turunan dari Category.'},
+  {key:'spec',     label:'Specification', type:'select', required:true, options:SEG.spec, seg:true,
+   help:'Turunan dari Type.'},
+  {key:'brand',    label:'Brand',    type:'select', required:true, options:SEG.brand, seg:true,
+   help:'Mengikuti pemetaan pada Specification.'},
+  {key:'varian',   label:'Varian',   type:'select', required:true, options:SEG.varian, seg:true,
+   help:'Pembeda material sejenis.'},
   {key:'kode',     label:'Pratinjau Kode Material', type:'static', full:true},
   {key:'nama',  label:'Nama Material', required:true, full:true, help:'Terbentuk otomatis dari pilihan di atas, masih dapat disunting.'},
-  {key:'sat',   label:'Satuan Pakai', type:'select', required:true, options:()=>DB.UOM.map(u=>u.kode)},
-  {key:'sat_beli', label:'Satuan Beli', type:'select', options:()=>DB.UOM.map(u=>u.kode)},
-  {key:'konversi', label:'Faktor Konversi', type:'number', step:'0.0001', help:'1 satuan beli = n satuan pakai.'},
-  {key:'waste', label:'Waste (%)', type:'number', step:'0.01', rule:v=>(v<0||v>50)?'Waste hanya boleh 0 sampai 50 persen.':''},
-  {key:'supplier', label:'Supplier Utama', type:'select', options:()=>DB.SUPPLIER.map(s=>({v:s.kode,l:s.kode+' — '+s.nama}))},
-  {key:'harga', label:'Harga Awal (Rp)', type:'number', required:true},
+  {key:'sat_beli', label:'Satuan Beli', type:'select', required:true, options:()=>DB.UOM.map(u=>u.kode),
+   help:'Satuan saat material dibeli dari supplier.'},
+  {key:'sat',   label:'Satuan Pakai', type:'select', required:true, options:()=>DB.UOM.map(u=>u.kode),
+   help:'Satuan saat material dihitung pada breakdown dan AHS.'},
+  {key:'konversi', label:'Faktor Konversi', type:'number', step:'0.0001', required:true,
+   help:'1 satuan beli = n satuan pakai. Contoh 1 lembar multiplek 122x244 cm = 2,9768 m2; 1 set rail laci = 2 batang.'},
+  /* rev-5 poin 2 putaran 3 (P-31): kolom KETERANGAN pada sheet Bahan & Upah —
+     dasar faktor konversi dan isi kemasan. Tampil pada Add, Edit, dan Detail. */
+  {key:'ket', label:'Keterangan', full:true, type:'textarea', rows:2,
+   help:'Sumber: Data_Sample.xlsx sheet Bahan & Upah kolom KETERANGAN. Contoh: "Uk. 122 x 244 cm / lbr", "1 set = 2 bh rail", "Kebutuhan = 0,75 kg/lbr".'},
+  {key:'waste', label:'Waste (%)', type:'number', step:'0.01', help:'Persentase susut/sisa potongan. Volume terpakai = volume bersih x (1 + waste).', rule:v=>(v<0||v>50)?'Waste hanya boleh 0 sampai 50 persen.':''},
+  {key:'supplier', label:'Supplier Utama', type:'select', options:SEG.supplier,
+   help:'Pilihan mengikuti Supplier yang sah pada Specification terpilih (menu Kategori).'},
+  {key:'harga', label:'Harga Beli Awal (Rp)', type:'number', required:true, help:'Harga per satuan beli.'},
   {key:'upd',   label:'Berlaku Sejak', type:'date', required:true},
-  {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+  {key:'status', label:'Status', type:'switch'}
 ];
 
 const cfg = {
   key:'material', perm:'material-price', entity:'Material', idKey:'kode', formSize:'lg',
-  title:'Material & Price', desc:'Daftar material beserta harga berlaku. Kode terbentuk dari lima segmen bertingkat.',
+  title:'Material', desc:'Daftar material beserta harga berlaku. Kode terbentuk dari lima segmen bertingkat.',
   rows:()=>DB.MATERIAL,
   toolbar:[TB.add('Material'), TB.upload('material'), TB.download()],
   columns:[
-    {key:'kode', label:'Kode Material', width:'186px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+    {key:'kode', label:'Kode Material', width:'176px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
     {key:'nama', label:'Nama Material', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
-    {key:'sat',  label:'Satuan', width:'86px', filter:'select', options:()=>[...new Set(DB.MATERIAL.map(m=>m.sat))]},
-    {key:'harga',label:'Harga Berlaku', width:'140px', align:'right', filter:false, render:r=>money(r.harga)},
-    {key:'waste',label:'Waste', width:'82px', align:'right', filter:false, render:r=>`<span class="num">${(r.waste*100).toFixed(0)}%</span>`},
-    {key:'supplier', label:'Supplier', width:'120px', filter:'select', options:()=>DB.SUPPLIER.map(s=>s.kode)},
-    {key:'sts_harga', label:'Status Harga', width:'150px', filter:'select', options:['Terkini','Kedaluwarsa','Belum Ada Harga'], render:r=>statusBadge(r.sts_harga)},
-    {key:'status', label:'Status', width:'112px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
+    {key:'sat_beli', label:'Satuan Beli', width:'104px', filter:'select', options:()=>[...new Set(DB.MATERIAL.map(m=>m.sat_beli||m.sat))],
+     render:r=>esc(r.sat_beli||r.sat)},
+    {key:'harga',label:'Harga Beli', width:'132px', align:'right', filter:false, render:r=>money(r.harga)},
+    {key:'konversi',label:'Faktor Konversi', width:'126px', align:'right', filter:false,
+     render:r=>`<span class="num">${nf(r.konversi||1)}</span>`},
+    {key:'ket', label:'Keterangan', width:'190px', sort:false,
+     render:r=>r.ket?`<span class="cell-sub" title="${esc(r.ket)}">${esc(r.ket)}</span>`:'<span class="text-ink3">—</span>'},
+    {key:'sat',  label:'Satuan Pakai', width:'110px', filter:'select', options:()=>[...new Set(DB.MATERIAL.map(m=>m.sat))]},
+    {key:'harga_pakai', label:'Harga Satuan Pakai', width:'150px', align:'right', filter:false, sort:false,
+     sortValue:r=>r.harga/(r.konversi||1), render:r=>money(r.harga/(r.konversi||1)),
+     exportValue:r=>Math.round(r.harga/(r.konversi||1))},
+    {key:'waste',label:'Waste', width:'78px', align:'right', filter:false, render:r=>`<span class="num">${(r.waste*100).toFixed(0)}%</span>`},
+    {key:'supplier', label:'Supplier', width:'112px', filter:'select', options:()=>DB.SUPPLIER.map(s=>s.kode)},
+    {key:'sts_harga', label:'Status Harga', width:'146px', filter:'select', options:['Terkini','Kedaluwarsa','Belum Ada Harga'],
+     filterValue:r=>priceStatus(r.harga,r.upd), sortValue:r=>priceStatus(r.harga,r.upd),
+     render:r=>statusBadge(priceStatus(r.harga, r.upd))},
+    {key:'status', label:'Status', width:'104px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
   ],
   actions:r=>['view','edit',{k:'price'},{k:'history'},'delete'],
-  form: matForm,
+  /* rev-6 poin 12 (P-48) — perbaikan pada Edit.
+     Kode material disimpan sebagai satu kolom KODE, sedangkan formnya memakai
+     lima dropdown segmen. Sebelumnya kelima dropdown itu tidak pernah diisi
+     dari kode yang tersimpan, sehingga membuka Edit selalu menampilkan pilihan
+     pertama (ACP.01.01.SV.00) dan menekan Save akan MENIMPA kode material yang
+     sedang disunting. Kini kode dipecah lebih dahulu menjadi lima segmen.
+     Sekalian diperbaiki: Waste disimpan sebagai pecahan (0,08) tetapi
+     ditampilkan dan diisi dalam persen (8), sehingga tanpa penyesuaian ini
+     setiap kali Edit disimpan nilainya menyusut seratus kali lipat. */
+  form:(d, isNew)=>{
+    if (!isNew && d.kode && !d.kategori){
+      const s = String(d.kode).split('.');
+      d.kategori = s[0] || ''; d.type = s[1] || ''; d.spec = s[2] || '';
+      d.brand    = s[3] || ''; d.varian = s[4] || '';
+    }
+    if (!isNew && d.waste != null && d.waste !== '' && Number(d.waste) <= 1)
+      d.waste = Math.round(Number(d.waste) * 10000) / 100;
+    return matForm;
+  },
   formDefaults:()=>({status:'Aktif', waste:5, konversi:1, upd:today(), spec:'00', varian:'00'}),
-  beforeSave:o=>{ o.waste = Number(o.waste)/100; o.sts_harga = o.harga? 'Terkini':'Belum Ada Harga'; },
+  beforeSave:o=>{ o.waste = Number(o.waste)/100; o.konversi = Number(o.konversi)||1; o.sts_harga = priceStatus(o.harga, o.upd); },
   onFormShown:(el,data)=>{
     const sync = () => {
       const d = readForm(el, matForm);
@@ -90,14 +168,67 @@ const cfg = {
         nm.value = (c + ' ' + b).trim();
       }
     };
-    ['kategori','type','spec','brand','varian'].forEach(k=>{ const i=$(`[name="${k}"]`,el); if(i) i.onchange=sync; });
+    /* rev-6 poin 12 (P-48) — cascading penuh.
+       Sebelumnya hanya Brand dan Supplier yang dimuat ulang, sehingga
+       mengganti Category tidak mengubah isi Type, dan Specification tetap
+       berupa daftar angka tetap. Kini setiap kali induknya berubah, daftar
+       turunannya dimuat ulang dan pilihan yang tidak lagi sah otomatis
+       diganti dengan pilihan pertama yang tersedia. */
+    /* Memuat ulang satu daftar pilihan.
+       jaga = true dipakai saat form PERTAMA dibuka (Edit): nilai yang sudah
+       tersimpan tidak boleh diganti diam-diam walaupun belum terdaftar pada
+       master Kategori — nilai itu tetap ditampilkan dengan keterangan
+       "(tidak terdaftar pada master)" supaya ketidakcocokan datanya terlihat,
+       bukan tertutupi.
+       jaga = false dipakai saat pengguna mengganti induknya: pilihan turunan
+       yang tidak lagi sah diganti dengan pilihan pertama yang tersedia. */
+    const reload = (name, opts, jaga) => {
+      const sel = $(`[name="${name}"]`, el); if (!sel) return;
+      const keep = sel.value;
+      const ada  = opts.some(o=>String(o.v) === String(keep));
+      let list = opts;
+      if (!ada && jaga && keep !== '')
+        list = [{v:keep, l:keep+' — (tidak terdaftar pada master)'}].concat(opts);
+      const pilih = (ada || (jaga && keep !== '')) ? keep : String((list[0]||{}).v ?? '');
+      sel.innerHTML = list.map(o=>`<option value="${esc(o.v)}" ${String(o.v)===String(pilih)?'selected':''}>${esc(o.l)}</option>`).join('');
+      if (String(pilih) !== String(keep)) sel.dispatchEvent(new Event('change', {bubbles:true}));
+    };
+    /* urutan rantai: Category -> Type -> Specification -> Brand & Supplier */
+    const cascade = (dari, jaga) => {
+      if (dari === 'kategori') reload('type', SEG.type(readForm(el, matForm)), jaga);
+      if (dari === 'kategori' || dari === 'type') reload('spec', SEG.spec(readForm(el, matForm)), jaga);
+      const d = readForm(el, matForm);
+      reload('brand',    SEG.brand(d),    jaga);
+      reload('supplier', SEG.supplier(d), jaga);
+    };
+    let sibuk = false;                       /* cegah pemanggilan berulang */
+    ['kategori','type','spec','brand','varian'].forEach(k=>{
+      const i = $(`[name="${k}"]`, el);
+      if (!i) return;
+      i.onchange = () => {
+        if (sibuk) return;
+        sibuk = true;
+        if (k !== 'brand' && k !== 'varian') cascade(k, false);
+        sync();
+        sibuk = false;
+      };
+    });
+    cascade('kategori', true);               /* samakan isi daftar saat form dibuka */
     sync();
   },
   detail:r=>detailHTML([
-    ['Kode Material',`<span class="mono">${esc(r.kode)}</span>`],['Nama',r.nama],['Satuan Pakai',r.sat],
-    ['Harga Berlaku',money(r.harga)],['Waste',(r.waste*100).toFixed(0)+'%'],
+    ['Kode Material',`<span class="mono">${esc(r.kode)}</span>`],['Nama',r.nama],
+    ['Satuan Beli',(r.sat_beli||r.sat)+' — satuan saat dibeli dari supplier'],
+    ['Harga Beli',money(r.harga)+' per '+esc(r.sat_beli||r.sat)],
+    ['Faktor Konversi',nf(r.konversi||1)+' — 1 '+esc(r.sat_beli||r.sat)+' = '+nf(r.konversi||1)+' '+esc(r.sat)],
+    ['Keterangan',r.ket?esc(r.ket):'—'],
+    ['Satuan Pakai',r.sat+' — satuan saat dihitung pada breakdown dan AHS'],
+    ['Harga Satuan Pakai',money(r.harga/(r.konversi||1))+' per '+esc(r.sat)],
+    ['Waste',(r.waste*100).toFixed(0)+'% — susut dan sisa potongan yang wajar'],
+    ['Harga Efektif ke AHS',money((r.harga/(r.konversi||1))*(1+(r.waste||0)))+' per '+esc(r.sat)+' (sudah termasuk waste)'],
     ['Supplier',(DB.SUPPLIER.find(s=>s.kode===r.supplier)||{}).nama||'-'],
-    ['Status Harga',statusBadge(r.sts_harga)],['Terakhir Diperbarui',dmy(r.upd)],['Status',statusBadge(r.status)]
+    ['Status Harga',statusBadge(priceStatus(r.harga,r.upd))+' <span class="text-ink3" style="font-size:11.5px">'+esc(priceAgeNote(r.upd))+'</span>'],
+    ['Terakhir Diperbarui',dmy(r.upd)],['Status',statusBadge(r.status)]
   ]),
   onAction:(k,r)=>{
     if (k!=='price') return false;
@@ -114,7 +245,7 @@ const cfg = {
       footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(close,el)=>{
         const v = Number($('[name="harga_baru"]',el).value);
         if (!v){ toast('Harga baru wajib diisi.','err'); return; }
-        r.harga = v; r.sts_harga='Terkini'; r.upd = $('[name="mulai"]',el).value || today();
+        r.harga = v; r.upd = $('[name="mulai"]',el).value || today(); r.sts_harga = priceStatus(r.harga, r.upd);
         saveDB(); drawTable(cfg); close(); toast('Harga material berhasil disimpan.');
       }}],
       onShown:el=>{

@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -42,9 +43,30 @@ renderTable('#zone', {
     {key:'sat',  label:'Satuan', width:'96px', filter:'select', options:['Unit','M2','M1']},
     {key:'hsp',  label:'Harga Satuan', width:'170px', align:'right', filter:false, render:r=>money(r.hsp)}
   ],
-  actions:['view'],
-  detail:r=>detailHTML([['Kode',r.kode],['Uraian',r.nama],['Kelompok',(DB.WORKGROUP.find(w=>w.kode===r.grp)||{}).nama],
-    ['Satuan',r.sat],['Harga Satuan Pekerjaan',money(r.hsp)],['Breakdown Rujukan',r.bd||'-'],['Status',statusBadge(r.status)]])
+  /* rev-6 poin 8: selain jendela Detail, disediakan aksi Buka Halaman Detail
+     menuju rincian AHS (hanya-baca untuk role yang tidak berhak menyunting). */
+  /* rev-6 poin 18 (P-54): aksi Edit DIHAPUS dari menu ini. Unit Price List
+     adalah daftar rujukan harian yang bersifat hanya-baca (PRM-007 hanya
+     memiliki fitur View dan Export); penyuntingan AHS dilakukan di menu
+     Unit Price Analysis. Tombol buka-halaman tetap tersedia bagi yang perlu
+     melihat atau mengubah rinciannya. */
+  actions:[{k:'open'},'view'],
+  onAction:(k,r)=>{
+    if (k==='open'){ location.href='unit-price-analysis-detail.html?kode='+r.kode+'&from=upl'; return true; }
+    return false;
+  },
+  /* rev-6 poin 8: jendela Detail sebelumnya hanya memuat tujuh baris keterangan
+     sehingga tidak menjawab pertanyaan utama estimator — "harga ini tersusun
+     dari apa". Kini memakai ahsDetailHTML(): komposisi biaya A/B/C, margin,
+     harga pokok, daftar komponen upah dan bahan beserta koefisiennya,
+     breakdown rujukan, serta pemakaiannya pada BOQ. */
+  detailSub:r=>r.kode+' — '+r.nama+' · per 1 '+r.sat,
+  detailSize:'xl',
+  detail:r=>ahsDetailHTML(r),
+  detailFooter:r=>[
+    {label:'Buka Rincian AHS', cls:'btn-primary', ic:'openpage',
+     onClick:()=>location.href='unit-price-analysis-detail.html?kode='+r.kode+'&from=upl'}
+  ]
 });
 
 </script>

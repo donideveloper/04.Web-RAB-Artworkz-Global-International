@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -44,7 +45,7 @@ renderTable('#zone', {
     {key:'kode', label:'Kode Satuan', required:true},
     {key:'nama', label:'Nama Satuan', required:true},
     {key:'jenis', label:'Jenis Satuan', type:'select', options:['Luas','Panjang','Jumlah','Tenaga','Berat','Volume'], required:true},
-    {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+    {key:'status', label:'Status', type:'switch'}
   ],
   formDefaults:()=>({status:'Aktif'}),
   actions:['view','edit','delete'],

@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -33,7 +34,7 @@ const MOD = new URLSearchParams(location.search).get('m') || 'material';
 const META = {
   material:  {t:'Material', back:'material-price.html',
     cols:['KODE_MATERIAL','NAMA_MATERIAL','SATUAN_PAKAI','SATUAN_BELI','KONVERSI','WASTE_PERSEN','SUPPLIER','HARGA','TGL_BERLAKU']},
-  labor:     {t:'Labor Rate', back:'labor-rate.html', cols:['KODE_UPAH','NAMA_UPAH','JENIS','SATUAN','TARIF','TGL_BERLAKU']},
+  labor:     {t:'Upah', back:'labor-rate.html', cols:['KODE_UPAH','NAMA_UPAH','JENIS','SATUAN','TARIF','TGL_BERLAKU']},
   breakdown: {t:'Material Breakdown', back:'material-breakdown.html',
     cols:['KODE_BREAKDOWN','KELOMPOK','KODE_MATERIAL','BAGIAN','PANJANG','LEBAR','JUMLAH','SATUAN','WASTE_PERSEN']},
   ahs:       {t:'AHS', back:'unit-price-analysis.html',

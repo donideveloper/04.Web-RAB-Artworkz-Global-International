@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -52,7 +53,7 @@ renderTable('#zone', {
     {key:'termin', label:'Termin Pembayaran', type:'select', options:['Tunai','14 hari','30 hari','45 hari']},
     {key:'kategori', label:'Kategori Material yang Dipasok', type:'checks', full:true,
      options:()=>DB.CATEGORY.map(c=>({v:c.kode,l:c.kode+' — '+c.nama}))},
-    {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+    {key:'status', label:'Status', type:'switch'}
   ],
   formDefaults:()=>({status:'Aktif', termin:'30 hari', kode:nextCode('SUP-', DB.SUPPLIER, 'kode')}),
   actions:['view','edit','delete'],

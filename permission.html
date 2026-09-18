@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -47,10 +48,10 @@ renderTable('#zone', {
   form:[
     {key:'kode', label:'Kode Permission', required:true},
     {key:'modul',label:'Modul Induk', type:'select', required:true, options:['Main','Master Data','Price Analysis','Project','User Access','System']},
-    {key:'menu', label:'Nama Menu', required:true, full:true, ph:'contoh: Material & Price'},
+    {key:'menu', label:'Nama Menu', required:true, full:true, ph:'contoh: Bahan'},
     {key:'url',  label:'URL / Route', required:true, full:true, ph:'contoh: /master/material'},
     {key:'fitur',label:'Tombol fitur di dalam menu ini', type:'checks', required:true, full:true, options:['View','Add','Edit','Delete','Import','Export','Print','Approve','Finalize','Discount','Set Permission','Reset Password','Unlock','History']},
-    {key:'status',label:'Status', type:'select', options:['Aktif','Nonaktif']}
+    {key:'status', label:'Status', type:'switch'}
   ],
   formDefaults:()=>({kode:nextCode('PRM-', DB.PERMISSIONS, 'kode'), fitur:['View'], status:'Aktif'}),
   detail:r=>detailHTML([['Kode',r.kode],['Nama Menu',r.menu],['Modul',r.modul],['URL',`<code>${esc(r.url)}</code>`],

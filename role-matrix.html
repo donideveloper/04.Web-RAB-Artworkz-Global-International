@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matrix Akses Menu &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme')||'light';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="role-matrix" data-title="Matrix Akses Menu Setiap Role" data-info="role-matrix">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone">
+      <div id="rolenote"></div>
+      <div id="head"></div>
+      <div id="mx"></div>
+      <div id="legend"></div>
+    </div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+/* ============================================================
+   rev-6 poin 6 — Matrix Akses Menu Setiap Role
+   Sumber data satu pintu:
+     DB.PERMISSIONS  : daftar menu beserta fitur yang tersedia pada menu itu
+                       (tabel TB_M_PERMISSION), tiap baris memiliki kunci menu.
+     DB.ROLE_PERM    : fitur yang diberikan kepada tiap role (TB_M_ROLE_PERMISSION).
+   Halaman ini hanya menampilkan; penyuntingan tetap pada Role — Set Permission.
+   ============================================================ */
+
+/* fitur yang dimiliki satu role pada satu menu */
+function grantOf(roleKode, perm){
+  const map = DB.ROLE_PERM[roleKode] || {};
+  const list = map['*'] ? perm.fitur.map(f=>f.toLowerCase()) : (map[perm.key] || []);
+  return perm.fitur.filter(f => list.includes(f.toLowerCase()));
+}
+
+const ROLES = DB.ROLES.filter(r=>r.status==='Aktif');
+let MODE = 'ringkas';      /* ringkas = ikon tingkat akses, rinci = daftar fitur */
+
+$('#rolenote').innerHTML = roleNote(
+  'Matriks ini menjawab pertanyaan <b>&ldquo;role mana boleh melakukan apa pada menu mana&rdquo;</b>. ' +
+  'Baris = menu (' + DB.PERMISSIONS.length + ' menu pada tabel <span class="mono">TB_M_PERMISSION</span>), ' +
+  'kolom = role (' + ROLES.length + ' role pada tabel <span class="mono">TB_M_ROLE</span>), ' +
+  'isi sel = fitur yang diizinkan (<span class="mono">TB_M_ROLE_PERMISSION</span>). ' +
+  'Hak akses efektif seorang pengguna adalah <b>gabungan</b> seluruh role yang dimilikinya &mdash; ' +
+  'contoh Budi Prasetyo memiliki role SPV dan EST, sehingga haknya adalah gabungan kedua kolom tersebut. ' +
+  'Menu yang tidak memiliki fitur <b>View</b> tidak ditampilkan pada sidebar role tersebut.');
+
+$('#head').innerHTML = `
+  <div class="card"><div class="card-tb">
+    <div><h2>Matrix Akses Menu &times; Role</h2>
+      <p>Tampilan hanya-baca. Perubahan hak akses dilakukan pada menu <b>Role &rarr; Set Permission</b>.</p></div>
+    <div class="acts">
+      <button class="btn btn-ghost" id="btn-mode">${icon('list',15)} Tampilkan Rinci</button>
+      <button class="btn btn-ghost" id="btn-exp">${icon('download',15)} Download Excel</button>
+      <button class="btn btn-ghost" id="btn-print">${icon('print',15)} Print</button>
+    </div>
+  </div>
+  <div class="card-body pt-0">
+    <div class="d-flex flex-wrap gap-3">
+      ${ROLES.map(r=>`<div style="min-width:190px;flex:1">
+        <div class="cell-main">${esc(r.kode)} &middot; ${esc(r.nama)}</div>
+        <div class="text-ink3" style="font-size:12px">${esc(r.desc)}</div></div>`).join('')}
+    </div>
+  </div></div>`;
+
+function levelOf(n, total){ return n===0 ? 'none' : (n===total ? 'full' : 'part'); }
+
+function draw(){
+  const mods = [...new Set(DB.PERMISSIONS.map(p=>p.modul))];
+  $('#mx').innerHTML = `
+    <div class="card"><div class="mx-wrap"><table class="mx">
+      <thead><tr>
+        <th class="mx-menu">Menu / Modul</th>
+        ${ROLES.map(r=>`<th title="${esc(r.nama)}">${esc(r.kode)}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${mods.map(m=>`
+          <tr class="mx-grp"><td colspan="${ROLES.length+1}">${esc(m)}</td></tr>
+          ${DB.PERMISSIONS.filter(p=>p.modul===m).map(p=>`
+            <tr>
+              <td class="mx-menu">
+                <div class="cell-main">${esc(p.menu)}</div>
+                <code>${esc(p.url)}</code>
+              </td>
+              ${ROLES.map(r=>{
+                const g = grantOf(r.kode, p);
+                const lv = levelOf(g.length, p.fitur.length);
+                const tip = `${r.kode} pada ${p.menu}: ` + (g.length ? g.join(', ') : 'tidak memiliki akses');
+                if (MODE==='ringkas')
+                  return `<td class="mx-cell" title="${esc(tip)}">
+                    <span class="mx-dot ${lv}">${icon(lv==='none'?'minus':lv==='full'?'check':'list',14)}</span>
+                    <div class="text-ink3" style="font-size:10.5px;margin-top:2px">${g.length}/${p.fitur.length}</div></td>`;
+                return `<td class="mx-cell" title="${esc(tip)}" style="text-align:left;min-width:170px">
+                  ${g.length ? g.map(f=>`<span class="mx-f">${esc(f)}</span>`).join('')
+                             : `<span class="mx-f off">Tidak ada akses</span>`}</td>`;
+              }).join('')}
+            </tr>`).join('')}`).join('')}
+      </tbody>
+    </table></div></div>`;
+}
+draw();
+
+$('#legend').innerHTML = `
+  <div class="card"><div class="card-body">
+    <div class="mx-lgd">
+      <span class="i"><span class="mx-dot full">${icon('check',14)}</span> Akses penuh &mdash; seluruh fitur menu diizinkan</span>
+      <span class="i"><span class="mx-dot part">${icon('list',14)}</span> Akses sebagian &mdash; arahkan kursor untuk melihat daftar fiturnya</span>
+      <span class="i"><span class="mx-dot none">${icon('minus',14)}</span> Tanpa akses &mdash; menu tidak muncul pada sidebar role tersebut</span>
+    </div>
+    <p class="text-ink3 mt-3 mb-0" style="font-size:12px">
+      Angka <b>n/m</b> pada setiap sel berarti n fitur diizinkan dari m fitur yang tersedia pada menu itu.
+      Fitur yang dimaksud: View, Add, Edit, Delete, Import, Export, Print, Approve, Discount, dan fitur khusus
+      lain sesuai menu (contoh Reset Password dan Unlock pada menu User).</p>
+  </div></div>`;
+
+$('#btn-mode').onclick = () => {
+  MODE = MODE==='ringkas' ? 'rinci' : 'ringkas';
+  $('#btn-mode').innerHTML = icon('list',15) + (MODE==='ringkas' ? ' Tampilkan Rinci' : ' Tampilkan Ringkas');
+  draw();
+};
+$('#btn-print').onclick = () => { toast('Menyiapkan dokumen cetak…','info'); setTimeout(()=>window.print(),400); };
+$('#btn-exp').onclick = () => {
+  const head = ['Modul','Menu','URL', ...ROLES.map(r=>r.kode)];
+  const body = DB.PERMISSIONS.map(p=>[p.modul, p.menu, p.url,
+    ...ROLES.map(r=>{ const g = grantOf(r.kode,p); return g.length ? g.join(' | ') : '-'; })]);
+  const csv = [head,...body].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download = 'matrix-akses-menu-'+today()+'.csv';
+  a.click();
+  toast('Matrix akses '+DB.PERMISSIONS.length+' menu × '+ROLES.length+' role berhasil diekspor.');
+};
+
+</script>
+</body>
+</html>

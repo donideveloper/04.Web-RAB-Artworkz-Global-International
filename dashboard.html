@@ -30,16 +30,22 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
 
-const S = [['Draft','off','folder'],['Sent','info','send'],['Won','ok','check'],['Lost','danger','x']];
+/* rev-6 poin 7: status dibaca melalui normPrjStatus agar seragam dengan kolom
+   Status pada menu Project & Quotation. Setiap kartu menuju tabel project yang
+   sudah tersaring pada status tersebut, sehingga angkanya dapat dicocokkan. */
+const S = [['Draft','off','folder'],['Submit','info','send'],['Succeed','ok','check'],['Failed','danger','x']];
 $('#stats').innerHTML = S.map(([s,c,ic])=>{
-  const rows = DB.PROJECT.filter(p=>p.status===s), val = rows.reduce((a,b)=>a+b.nilai,0);
-  return `<div class="col-6 col-xl-3"><div class="stat">
+  const rows = DB.PROJECT.filter(p=>normPrjStatus(p.status)===s);
+  const val  = rows.reduce((a,b)=>a+(Number(b.nilai)||0),0);
+  return `<div class="col-6 col-xl-3"><a class="stat d-block" href="project.html?status=${s}"
+    style="text-decoration:none" title="Lihat daftar project berstatus ${s}">
     <div class="lbl"><span class="ic" style="background:var(--${c==='off'?'line-soft':c+'-soft'});color:var(--${c==='off'?'ink-2':c})">${icon(ic,15)}</span> Project ${s}</div>
-    <div class="val">${rows.length}</div><div class="sub">${rp(val)}</div></div></div>`;
+    <div class="val">${rows.length}</div><div class="sub">${rp(val)}</div></a></div>`;
 }).join('');
 
 /* grafik nilai penawaran 12 bulan terakhir */
@@ -49,7 +55,7 @@ const won   = [410,760,520,900,640,1180,700,1290,860,1410,980,1620];
 const max = Math.max(...data);
 $('#chart').innerHTML = `
 <div class="card"><div class="card-tb"><div><h2>Nilai Penawaran 12 Bulan Terakhir</h2>
-  <p>Dalam juta rupiah. Batang gelap = penawaran dimenangkan (Won).</p></div>
+  <p>Dalam juta rupiah. Batang gelap = penawaran dimenangkan (Succeed).</p></div>
   <div class="acts"><button class="btn btn-ghost btn-sm" onclick="toast('Grafik diekspor ke gambar.','info')">${icon('download',14)} Export</button></div></div>
   <div class="card-body">
     <div class="d-flex align-items-end gap-2" style="height:210px">
@@ -83,7 +89,7 @@ const SC = [
   ['Buat Project Baru','project.html','folder'],
   ['Susun BOQ','project-detail.html','list'],
   ['Analisa Harga Satuan','unit-price-analysis.html','calc'],
-  ['Material & Price','material-price.html','box'],
+  ['Material','material-price.html','box'],
   ['Daftar Harga Satuan','unit-price-list.html','tag']
 ];
 $('#shortcut').innerHTML = `

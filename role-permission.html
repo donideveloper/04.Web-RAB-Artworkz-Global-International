@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -37,19 +38,22 @@ DB.PERMISSIONS.forEach(p=>{
   const all = map['*'];
   granted[p.kode] = all ? p.fitur.slice() : (Object.keys(map).length && p.menu ? [] : []);
 });
-/* prefill kasar dari ROLE_PERM agar demo terasa nyata */
+/* rev-6 poin 6: pencocokan menu dengan hak akses tidak lagi menebak dari nama
+   menu, melainkan memakai kolom kunci (p.key) pada TB_M_PERMISSION. Kunci yang
+   sama dipakai oleh sidebar, penjaga halaman, dan Matrix Akses Menu, sehingga
+   ketiganya pasti menampilkan hak akses yang sama. */
 DB.PERMISSIONS.forEach(p=>{
   const map = DB.ROLE_PERM[RK]||{};
   if (map['*']) { granted[p.kode]=p.fitur.slice(); return; }
-  const slug = p.menu.toLowerCase().replace(/ & | /g,'-').replace('project-&-quotation','project');
-  const key = Object.keys(map).find(k=>slug.startsWith(k)||k.startsWith(slug.split('-')[0]));
-  granted[p.kode] = key ? p.fitur.filter(f=>map[key].includes(f.toLowerCase())) : [];
+  const list = map[p.key] || [];
+  granted[p.kode] = p.fitur.filter(f=>list.includes(f.toLowerCase()));
 });
 
 $('#head').innerHTML = `
   <div class="card"><div class="card-tb">
     <div>
       <a href="role.html" class="btn btn-ghost btn-sm mb-2">${icon('back',14)} Back to Role</a>
+      <a href="role-matrix.html" class="btn btn-ghost btn-sm mb-2">${icon('grid2',14)} Lihat Matrix Akses Seluruh Role</a>
       <h2>Set Permission &mdash; ${esc(role.kode)} · ${esc(role.nama)}</h2>
       <p>${esc(role.desc)}</p>
     </div>

@@ -25,13 +25,15 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
 
-renderTable('#zone', {
+const cfgBD = {
   key:'breakdown', perm:'material-breakdown', entity:'Breakdown', idKey:'kode',
-  title:'Material Breakdown', desc:'Rincian kebutuhan material per benda kerja. Varian finishing dibentuk melalui tombol Duplicate.',
+  title:'Material Breakdown',
+  desc:'Rincian kebutuhan material per benda kerja. Varian finishing dibentuk melalui tombol Duplicate. Alur status: Draft → Menunggu Verifikasi (Submit oleh Estimator) → Disetujui / Ditolak (oleh Supervisor Estimasi). Submit, Approve, dan Reject seluruhnya dilakukan di halaman detail — buka barisnya melalui ikon buka-halaman.',
   rows:()=>DB.BREAKDOWN,
   toolbar:[TB.add('Breakdown'), TB.upload('breakdown'), TB.download()],
   columns:[
@@ -41,9 +43,27 @@ renderTable('#zone', {
     {key:'sat',  label:'Satuan', width:'92px', filter:'select', options:['Unit','M2','M1']},
     {key:'finishing', label:'Jenis Finishing', width:'180px', filter:'select', options:()=>DB.FINISHING.map(f=>f.nama)},
     {key:'baris', label:'Jml Baris', width:'104px', align:'right', filter:false, render:r=>`<span class="num">${r.baris}</span>`},
-    {key:'status',label:'Status', width:'180px', filter:'select', options:['Draft','Menunggu Verifikasi','Disetujui','Nonaktif'], render:r=>statusBadge(r.status)}
+    {key:'status',label:'Status', width:'186px', filter:'select', options:['Draft','Menunggu Verifikasi','Disetujui','Ditolak'],
+     render:r=>statusBadge(r.status)+((r.aktif && r.aktif!=='Aktif')?' <span class="bdg off">Non Aktif</span>':'')
+       +(r.oleh_approve?`<span class="cell-sub">${esc(r.oleh_approve)}</span>`:(r.oleh_submit?`<span class="cell-sub">diajukan ${esc(r.oleh_submit)}</span>`:''))}
   ],
-  actions:[{k:'open'},'view','copy','delete'],
+  /* rev-4: alur status — Estimator Submit, Supervisor Approve / Reject */
+  /* rev-6 poin 15 (P-51): ikon Edit (pensil) yang sama dengan menu Material
+     ditambahkan di sini. Sebelumnya menu ini hanya punya ikon buka-halaman,
+     sehingga mengubah keterangan kepala data (nama, satuan, status, dan
+     sejenisnya) harus lewat halaman detail. Kini keduanya tersedia:
+     pensil untuk kepala data lewat jendela, ikon buka-halaman untuk isinya. */
+  /* rev-6 poin 16 (P-52): Approve dan Reject TIDAK lagi berada di kolom
+     Actions. Keputusan menyetujui atau menolak menuntut verifikator membaca
+     lebih dahulu rincian materialnya, dan itu hanya terlihat pada halaman
+     detail — di sana tombol Approve dan Reject memang sudah tersedia pada
+     kepala halaman. Menaruhnya juga di daftar membuat keputusan dapat
+     diambil tanpa pernah melihat isinya.
+     rev-6 poin 22 (P-58): Submit ikut dikeluarkan dengan alasan yang sama —
+     tombolnya sudah ada pada kepala halaman detail. Kolom Actions kini murni
+     berisi navigasi dan pengelolaan baris; seluruh perpindahan status
+     dilakukan di halaman detail. */
+  actions:r=>[{k:'open'},'view','edit','copy','delete'],
   onAction:(k,r)=>{
     if (k==='open'){ location.href='material-breakdown-detail.html?kode='+r.kode; return true; }
     if (k==='copy'){
@@ -63,19 +83,40 @@ renderTable('#zone', {
     }
     return false;
   },
-  onRowClick:r=>location.href='material-breakdown-detail.html?kode='+r.kode,
-  form:[
-    {key:'kode', label:'Kode Breakdown', required:true},
-    {key:'sat',  label:'Satuan', type:'select', required:true, options:['Unit','M2','M1']},
-    {key:'nama', label:'Nama Item Pekerjaan', required:true, full:true},
-    {key:'dim',  label:'Dimensi Acuan', ph:'contoh 240 x 60 x 320 cm'},
-    {key:'finishing', label:'Jenis Finishing', type:'select', required:true, options:()=>DB.FINISHING.map(f=>f.nama)},
-    {key:'status',label:'Status', type:'select', options:['Draft','Menunggu Verifikasi','Disetujui','Nonaktif']}
-  ],
-  formDefaults:()=>({status:'Draft', sat:'Unit', baris:0}),
+  /* rev-6 poin 5: klik pada baris tabel TIDAK lagi membuka halaman detail.
+     Perpindahan ke detail hanya melalui tombol aksi Buka Halaman Detail,
+     agar baris tetap dapat dipilih, disalin, dan disaring tanpa berpindah halaman. */
+  /* rev-6 poin 17 (P-53): kolom Status pada form Add/Edit tidak lagi dropdown.
+     Daftar lama mencampur dua hal yang berbeda dalam satu kolom: status ALUR
+     (Draft, Menunggu Verifikasi, Disetujui, Ditolak) dengan keadaan hidup-mati
+     data (Nonaktif). Keduanya kini dipisah:
+       - Status (switch Aktif / Non Aktif), sama persis dengan menu Brand.
+       - Status Alur, berupa kotak yang TIDAK dapat diketik. Nilainya hanya
+         berubah lewat tombol Submit, Approve, dan Reject pada halaman detail
+         (P-52 dan P-58). Dropdown lama memungkinkan verifikasi dilompati
+         cukup dengan memilih "Disetujui". */
+  form:(d, isNew)=>{
+    /* data lama yang statusnya "Nonaktif" dipindahkan ke switch */
+    if (!isNew && d.status === 'Nonaktif'){ d.aktif = 'Nonaktif'; d.status = 'Draft'; }
+    return [
+      {key:'kode', label:'Kode Breakdown', required:true},
+      {key:'sat',  label:'Satuan', type:'select', required:true, options:['Unit','M2','M1']},
+      {key:'nama', label:'Nama Item Pekerjaan', required:true, full:true},
+      {key:'dim',  label:'Dimensi Acuan', ph:'contoh 240 x 60 x 320 cm'},
+      {key:'finishing', label:'Jenis Finishing', type:'select', required:true, options:()=>DB.FINISHING.map(f=>f.nama)},
+      {key:'status',label:'Status Alur', type:'static', cls:'stat-lock',
+       help:'Berubah melalui tombol Submit, Approve, dan Reject pada halaman detail breakdown.'},
+      {key:'aktif', label:'Status', type:'switch', def:'Aktif',
+       help:'Non Aktif membuat breakdown ini tidak dapat dipilih sebagai rujukan AHS baru.'}
+    ];
+  },
+  formDefaults:()=>({status:'Draft', aktif:'Aktif', sat:'Unit', baris:0}),
   detail:r=>detailHTML([['Kode',r.kode],['Nama',r.nama],['Dimensi',r.dim],['Satuan',r.sat],
-    ['Finishing',r.finishing],['Jumlah Baris Material',r.baris],['Status',statusBadge(r.status)]])
-});
+    ['Finishing',r.finishing],['Jumlah Baris Material',r.baris],['Status',statusBadge(r.status)],
+    ['Diajukan Oleh',r.oleh_submit||'-'],['Diverifikasi Oleh',r.oleh_approve||'-'],
+    ['Catatan Verifikasi',r.catatan_approve||'-']])
+};
+renderTable('#zone', cfgBD);
 
 </script>
 </body>

@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -51,7 +52,7 @@ renderTable('#zone', {
     {key:'pic', label:'Penanggung Jawab', required:true},
     {key:'telp', label:'Telepon / Email'},
     {key:'npwp', label:'NPWP', full:true, help:'Dicetak pada dokumen penawaran bila diisi.'},
-    {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+    {key:'status', label:'Status', type:'switch'}
   ],
   formDefaults:()=>({status:'Aktif', kode:nextCode('CLT-', DB.CLIENT, 'kode')}),
   actions:['view','edit','delete'],

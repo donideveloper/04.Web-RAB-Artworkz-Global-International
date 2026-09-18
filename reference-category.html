@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Category, Type & Specification &mdash; Web RAB</title>
+<title>Kategori &mdash; Web RAB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="assets/css/rab.css">
 <script>(function(){try{var t=localStorage.getItem('rab_theme')||'light';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 </head>
-<body data-page="reference-category" data-title="Category, Type & Specification">
+<body data-page="reference-category" data-title="Kategori">
 
 <div class="app">
   <div class="side-backdrop" id="side-backdrop"></div>
@@ -32,14 +32,16 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
 
-$('#rolenote').innerHTML = roleNote('Tiga tingkat data ditampilkan pada tab terpisah: <b>Category</b> &rarr; <b>Type</b> &rarr; <b>Specification</b>. Memilih baris Category lalu menekan tab Type akan menampilkan Type milik category tersebut; begitu pula Type &rarr; Specification (FSD &mdash; Modul Master Data Referensi).');
+$('#rolenote').innerHTML = roleNote('Halaman <b>Kategori</b> memuat tiga tingkat penyusun kode material: <b>Category &rarr; Type &rarr; Specification</b>. Perpindahan tingkat memakai <b>satu ikon yang sama</b> pada kolom Actions &mdash; ikon buka-halaman: pada baris Category ia membuka daftar Type, pada baris Type ia membuka daftar Specification. Arahkan kursor untuk melihat keterangan tujuannya. Pemetaan <b>Brand</b> dan <b>Supplier</b> yang sah kini menjadi bagian dari Specification (sumber: Data_Sample.xlsx sheet KODE-Kategori kolom BRAND dan SUPLIER / VENDOR).');
 let selCat = DB.CATEGORY[0].kode, selTyp = null;
 
 /* ---------- tab ---------- */
+/* rev-5 poin 2 & 3 (P-21, P-22): tab mapping dihapus, tinggal tiga tingkat. */
 const TABS = [['cat','Category'],['typ','Type'],['spc','Specification']];
 let cur = (location.hash.replace('#','') || 'cat');
 if (!TABS.some(t=>t[0]===cur)) cur = 'cat';
@@ -53,37 +55,52 @@ function go(k){
   }).join('');
   $$('[data-t]').forEach(a=>a.onclick=e=>{ e.preventDefault(); go(a.dataset.t); });
   ['cat','typ','spc'].forEach(v => $('#c-'+v).hidden = (v!==cur));
-  if (cur==='cat') drawCat(); else if (cur==='typ') drawTyp(); else drawSpc();
+  ({cat:drawCat, typ:drawTyp, spc:drawSpc})[cur]();
+}
+const catName = k => (DB.CATEGORY.find(c=>c.kode===k)||{}).nama || k;
+/* jumlah brand yang sah pada satu category = gabungan pemetaan seluruh spesifikasi
+   milik type-type category tersebut (rev-5 / P-22) */
+function brandCount(kat){
+  const types = DB.TYPE.filter(t=>t.kategori===kat).map(t=>t.kode);
+  const set = new Set();
+  DB.SPEC.filter(sp=>types.includes(sp.type)).forEach(sp=>(sp.brands||[]).forEach(b=>set.add(b)));
+  return set.size;
 }
 
 function drawCat(){
   renderTable('#c-cat', {
     key:'cat', perm:'reference', entity:'Category', idKey:'kode',
-    title:'Category', desc:'Kelompok besar material.',
+    title:'Category', desc:'Kelompok besar material. Tekan ikon buka-halaman pada kolom Actions untuk membuka Type milik category.',
     rows:()=>DB.CATEGORY,
     toolbar:[TB.add('Category'), TB.download()],
     columns:[
       {key:'kode', label:'Code', width:'74px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
-      {key:'nama', label:'Category Name', render:r=>`<div class="cell-main">${esc(r.nama)}</div><span class="cell-sub">${r.jml_type} type &middot; ${r.jml_mat} material</span>`},
+      {key:'nama', label:'Category Name', render:r=>`<div class="cell-main">${esc(r.nama)}</div><span class="cell-sub">${r.jml_type} type &middot; ${r.jml_mat} material &middot; ${brandCount(r.kode)} brand terpetakan</span>`},
       {key:'status', label:'Status', width:'104px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
     ],
     form:[
       {key:'kode', label:'Kode Category', required:true, help:'3 huruf kapital, contoh ACP.',
        rule:v=>/^[A-Z]{2,4}$/.test(v)?'':'Kode hanya boleh 2-4 huruf kapital.'},
       {key:'nama', label:'Nama Category', required:true, full:true},
-      {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+      {key:'status', label:'Status', type:'switch'}
     ],
     formDefaults:()=>({status:'Aktif', jml_type:0, jml_mat:0}),
-    actions:['view','edit','delete'],
-    detail:r=>detailHTML([['Kode',r.kode],['Nama',r.nama],['Jumlah Type',r.jml_type],['Jumlah Material',r.jml_mat],['Status',statusBadge(r.status)]]),
-    rowClass:r=>r.kode===selCat?'selected':'',
-    onRowClick:r=>{ selCat=r.kode; selTyp=null; go('typ'); toast('Menampilkan Type untuk category '+r.kode+'.','info'); }
+    /* rev-5 poin 2 (P-21): satu ikon navigasi saja pada kolom Actions */
+    actions:[{k:'types'},'view','edit','delete'],
+    onAction:(k,r)=>{
+      if (k==='types'){ selCat=r.kode; selTyp=null; go('typ'); toast('Menampilkan Type untuk category '+r.kode+'.','info'); return true; }
+      return false;
+    },
+    detail:r=>detailHTML([['Kode',r.kode],['Nama',r.nama],['Jumlah Type',r.jml_type],['Jumlah Material',r.jml_mat],
+      ['Jumlah Brand Terpetakan',brandCount(r.kode)+' (dihitung dari pemetaan pada Specification)'],['Status',statusBadge(r.status)]]),
+    rowClass:r=>r.kode===selCat?'selected':''
   });
 }
 function drawTyp(){
   renderTable('#c-typ', {
     key:'typ', perm:'reference', entity:'Type', idKey:'kode',
-    title:'Type', desc:'Turunan dari Category '+selCat+'. Pilih baris lain pada tab Category untuk mengganti.',
+    title:'Type — Category '+selCat+' ('+catName(selCat)+')',
+    desc:'Turunan dari Category '+selCat+'. Tekan ikon buka-halaman pada kolom Actions untuk membuka Specification milik type.',
     rows:()=>DB.TYPE.filter(t=>t.kategori===selCat),
     toolbar:[TB.add('Type')],
     columns:[
@@ -95,36 +112,68 @@ function drawTyp(){
       {key:'kategori', label:'Category', type:'select', options:()=>DB.CATEGORY.map(c=>({v:c.kode,l:c.kode+' — '+c.nama})), required:true},
       {key:'kode', label:'Kode Type', required:true, help:'Format <kategori>.<nn>, contoh ACP.01.'},
       {key:'nama', label:'Nama Type', required:true, full:true},
-      {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+      {key:'status', label:'Status', type:'switch'}
     ],
     formDefaults:()=>({kategori:selCat, status:'Aktif', jml_spec:0}),
-    actions:['view','edit','delete'],
+    actions:[{k:'specs'},'view','edit','delete'],
+    onAction:(k,r)=>{
+      if (k==='specs'){ selTyp=r.kode; go('spc'); toast('Menampilkan Specification untuk type '+r.kode+'.','info'); return true; }
+      return false;
+    },
     detail:r=>detailHTML([['Kode',r.kode],['Category',r.kategori],['Nama',r.nama],['Status',statusBadge(r.status)]]),
-    rowClass:r=>r.kode===selTyp?'selected':'',
-    onRowClick:r=>{ selTyp=r.kode; go('spc'); toast('Menampilkan Specification untuk type '+r.kode+'.','info'); }
+    rowClass:r=>r.kode===selTyp?'selected':''
   });
 }
+/* ---------- rev-5 poin 3 (P-22): pemetaan brand & supplier melekat pada Specification ----------
+   Dua kendali pilihan banyak pada form, dua kolom ringkas pada tabel index.
+   Penyimpanan: TB_M_SPEC_BRAND_D dan TB_M_SPEC_SUPPLIER_D. */
+const brandName = k => (DB.BRAND.find(b=>b.kode===k)||{}).nama || k;
+const supName   = k => (DB.SUPPLIER.find(s=>s.kode===k)||{}).nama || k;
+const ringkas = (arr, nameOf) => {
+  const a = arr || [];
+  if (!a.length) return '<span class="text-ink3">Belum dipetakan</span>';
+  const dua = a.slice(0,2).map(nameOf).join(', ');
+  return `<span title="${esc(a.map(nameOf).join(', '))}">${esc(dua)}${a.length>2?` <span class="cell-sub">(+${a.length-2})</span>`:''}</span>`;
+};
+
 function drawSpc(){
   renderTable('#c-spc', {
     key:'spc', perm:'reference', entity:'Specification', idKey:'kode',
-    title:'Specification', desc: selTyp?('Turunan dari Type '+selTyp+'.'):'Pilih salah satu baris pada tab Type terlebih dahulu.',
+    title:'Specification' + (selTyp?(' — Type '+selTyp):''),
+    desc: selTyp?('Turunan dari Type '+selTyp+'. Nilai ini menjadi segmen ke-3 pada kode material. Kolom Brand dan Supplier adalah pemetaan yang sah untuk spesifikasi ini.'):'Tekan ikon buka-halaman pada salah satu baris tab Type terlebih dahulu.',
     rows:()=>selTyp?DB.SPEC.filter(s=>s.type===selTyp):[],
-    toolbar:[TB.add('Specification')],
+    toolbar:[TB.add('Specification'), TB.download()],
     columns:[
       {key:'kode', label:'Code', width:'74px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
       {key:'nama', label:'Specification', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+      {key:'brands', label:'Brand', width:'180px', sort:false,
+       filterValue:r=>(r.brands||[]).map(brandName).join(', '), render:r=>ringkas(r.brands, brandName),
+       exportValue:r=>(r.brands||[]).join(', ')},
+      {key:'sups', label:'Supplier', width:'200px', sort:false,
+       filterValue:r=>(r.sups||[]).map(supName).join(', '), render:r=>ringkas(r.sups, supName),
+       exportValue:r=>(r.sups||[]).join(', ')},
       {key:'status', label:'Status', width:'104px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
     ],
     form:[
       {key:'kode', label:'Kode Spec', required:true, help:'2 digit angka, contoh 01.'},
       {key:'nama', label:'Nama Spesifikasi', required:true, full:true},
-      {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+      {key:'brands', label:'Brand yang Sah', type:'checks', full:true,
+       options:()=>DB.BRAND.filter(b=>b.status==='Aktif').map(b=>({v:b.kode, l:b.kode+' — '+b.nama})),
+       help:'Boleh lebih dari satu. Menjadi pembatas pilihan Brand pada menu Material.'},
+      {key:'sups', label:'Supplier yang Sah', type:'checks', full:true,
+       options:()=>DB.SUPPLIER.filter(s=>s.status==='Aktif').map(s=>({v:s.kode, l:s.kode+' — '+s.nama+' ('+s.kota+')'})),
+       help:'Boleh lebih dari satu. Menjadi pembatas pilihan Supplier pada menu Material.'},
+      {key:'status', label:'Status', type:'switch'}
     ],
-    formDefaults:()=>({type:selTyp, status:'Aktif'}),
+    formDefaults:()=>({type:selTyp, status:'Aktif', brands:[], sups:[]}),
     actions:['view','edit','delete'],
-    detail:r=>detailHTML([['Kode',r.kode],['Type',r.type],['Nama',r.nama],['Status',statusBadge(r.status)]])
+    detail:r=>detailHTML([['Kode',r.kode],['Type',r.type],['Nama',r.nama],
+      ['Brand yang Sah',(r.brands||[]).length?(r.brands||[]).map(b=>b+' — '+brandName(b)).join('<br>'):'Belum dipetakan'],
+      ['Supplier yang Sah',(r.sups||[]).length?(r.sups||[]).map(s=>s+' — '+supName(s)).join('<br>'):'Belum dipetakan'],
+      ['Status',statusBadge(r.status)]])
   });
 }
+
 go(cur);
 
 </script>

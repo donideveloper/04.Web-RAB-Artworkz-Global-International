@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -43,7 +44,7 @@ renderTable('#zone', {
   form:[
     {key:'kode', label:'Kode Brand', required:true, help:'2-3 huruf kapital, contoh HF untuk Hafele.'},
     {key:'nama', label:'Nama Brand', required:true, full:true},
-    {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+    {key:'status', label:'Status', type:'switch'}
   ],
   formDefaults:()=>({status:'Aktif', jml_mat:0}),
   actions:['view','edit','delete'],

@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -59,7 +60,7 @@ $('#filter').innerHTML = `
       <div><label class="form-label">Client</label><select class="form-select"><option>Semua Client</option>
         ${DB.CLIENT.map(c=>`<option>${esc(c.nama)}</option>`).join('')}</select></div>
       <div><label class="form-label">Status</label><select class="form-select"><option>Semua Status</option>
-        <option>Draft</option><option>Sent</option><option>Won</option><option>Lost</option></select></div>
+        <option>Draft</option><option>Submit</option><option>Succeed</option><option>Failed</option></select></div>
     </div>
   </div></div>`;
 
@@ -91,10 +92,10 @@ function run(){
   } else if (sel==='R8'){
     const byB = {};
     DB.PROJECT.forEach(p=>{ const c=(DB.CLIENT.find(x=>x.kode===p.client)||{}).jenis||'-';
-      byB[c]=byB[c]||{n:0,w:0,v:0,wv:0}; byB[c].n++; byB[c].v+=p.nilai; if(p.status==='Won'){byB[c].w++;byB[c].wv+=p.nilai;} });
+      byB[c]=byB[c]||{n:0,w:0,v:0,wv:0}; byB[c].n++; byB[c].v+=p.nilai; if(p.status==='Succeed'){byB[c].w++;byB[c].wv+=p.nilai;} });
     $('#result').innerHTML = card('Analisa Tingkat Keberhasilan per Jenis Bangunan',
-      `<thead><tr><th>Jenis Bangunan</th><th class="right">Jml Penawaran</th><th class="right">Jml Won</th>
-        <th class="right">Win Rate</th><th class="right">Nilai Penawaran</th><th class="right">Nilai Won</th></tr></thead>
+      `<thead><tr><th>Jenis Bangunan</th><th class="right">Jml Penawaran</th><th class="right">Jml Succeed</th>
+        <th class="right">Win Rate</th><th class="right">Nilai Penawaran</th><th class="right">Nilai Succeed</th></tr></thead>
       <tbody>${Object.entries(byB).map(([k,v])=>`<tr><td>${k}</td><td class="right num">${v.n}</td>
         <td class="right num">${v.w}</td><td class="right num">${(v.w/v.n*100).toFixed(0)}%</td>
         <td class="right num">${rp(v.v)}</td><td class="right num">${rp(v.wv)}</td></tr>`).join('')}</tbody>`);

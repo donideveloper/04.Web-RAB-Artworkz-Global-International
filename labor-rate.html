@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Labor Rate &mdash; Web RAB</title>
+<title>Upah Pekerja &mdash; Web RAB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -11,49 +11,59 @@
 <link rel="stylesheet" href="assets/css/rab.css">
 <script>(function(){try{var t=localStorage.getItem('rab_theme')||'light';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 </head>
-<body data-page="labor-rate" data-title="Labor Rate">
+<body data-page="labor-rate" data-title="Upah Pekerja">
 
 <div class="app">
   <div class="side-backdrop" id="side-backdrop"></div>
   <aside class="side" id="sidebar"></aside>
   <div class="main">
     <header class="topbar" id="topbar"></header>
-    <main class="content"><div id="zone"></div></main>
+    <main class="content"><div id="zone"><div id="rolenote"></div><div id="zone-tbl"></div></div></main>
   </div>
 </div>
 
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
 
+$('#rolenote').innerHTML = roleNote('Menu <b>Upah Pekerja</b> berisi <b>Upah Kerja</b> pada lembar kerja perusahaan (Data_Sample.xlsx sheet <b>Bahan &amp; Upah</b> blok <b>A. UPAH KERJA</b>, baris UP.01&ndash;UP.16) &mdash; bukan nama vendor. Isinya jenis pekerja beserta tarifnya. Sama seperti Material, tarif upah kini memiliki tombol <b>Tambah Tarif Baru</b> dan <b>Riwayat Tarif</b>: tarif lama tidak ditimpa, melainkan ditutup masa berlakunya dan tarif baru dicatat dengan tanggal berlaku tersendiri. Status tarif memakai batas umur yang sama, yaitu Setting <b>SET-005</b> ('+priceAgeLimit()+' hari).');
+
 const cfg = {
-  key:'labor', perm:'labor-rate', entity:'Labor Rate', idKey:'kode',
-  title:'Labor Rate', desc:'Tarif upah harian dan borongan. Badge biru = Harian, hijau = Borongan.',
+  key:'labor', perm:'labor-rate', entity:'Upah Pekerja', idKey:'kode',
+  title:'Upah Pekerja',
+  desc:'Tarif upah harian dan borongan. Badge biru = Harian (per orang-hari), hijau = Borongan (per satuan hasil pekerjaan).',
   rows:()=>DB.LABOR,
-  toolbar:[TB.add('Labor Rate'), TB.upload('labor'), TB.download()],
+  toolbar:[TB.add('Upah Pekerja'), TB.upload('labor'), TB.download()],
   columns:[
-    {key:'kode', label:'Kode', width:'100px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+    {key:'kode', label:'Kode', width:'92px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
     {key:'nama', label:'Nama Jenis Upah', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
-    {key:'jenis',label:'Jenis Perhitungan', width:'170px', filter:'select', options:['Harian','Borongan'], render:r=>statusBadge(r.jenis)},
-    {key:'sat',  label:'Satuan', width:'96px', filter:'select', options:['oh','m2']},
-    {key:'tarif',label:'Tarif Berlaku', width:'150px', align:'right', filter:false, render:r=>money(r.tarif)},
-    {key:'status',label:'Status', width:'118px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
+    {key:'jenis',label:'Jenis Perhitungan', width:'150px', filter:'select', options:['Harian','Borongan'], render:r=>statusBadge(r.jenis)},
+    {key:'sat',  label:'Satuan', width:'86px', filter:'select', options:['oh','m2']},
+    {key:'tarif',label:'Tarif Berlaku', width:'140px', align:'right', filter:false, render:r=>money(r.tarif)},
+    {key:'upd',  label:'Berlaku Sejak', width:'124px', filter:false, render:r=>`<span class="text-ink3">${dmy(r.upd)}</span>`},
+    {key:'sts_tarif', label:'Status Tarif', width:'140px', filter:'select', options:['Terkini','Kedaluwarsa','Belum Ada Harga'],
+     sortValue:r=>priceStatus(r.tarif, r.upd), render:r=>statusBadge(priceStatus(r.tarif, r.upd))},
+    {key:'status',label:'Status', width:'110px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
   ],
-  actions:['view','edit','history','delete'],
+  actions:r=>['view','edit',{k:'rate'},{k:'history'},'delete'],
   form:(d)=>[
     {key:'kode', label:'Kode Upah', required:true, help:'Format UP.nn.'},
-    {key:'jenis',label:'Jenis Perhitungan', type:'select', required:true, options:['Harian','Borongan']},
+    {key:'jenis',label:'Jenis Perhitungan', type:'select', required:true, options:['Harian','Borongan'],
+     help:'Harian dihitung per orang-hari (oh); Borongan dihitung per satuan hasil pekerjaan.'},
     {key:'nama', label:'Nama Jenis Upah', required:true, full:true},
     {key:'sat',  label:'Satuan', type:'select', required:true, options: d.jenis==='Borongan' ? ['m2','m1','unit'] : ['oh'],
      help:'Harian hanya menawarkan orang-hari, Borongan menawarkan satuan pekerjaan.'},
     {key:'tarif',label:'Tarif Awal (Rp)', type:'number', required:true},
-    {key:'mulai',label:'Berlaku Sejak', type:'date', required:true},
-    {key:'status',label:'Status', type:'select', options:['Aktif','Nonaktif']}
+    {key:'upd',  label:'Berlaku Sejak', type:'date', required:true},
+    {key:'status', label:'Status', type:'switch'}
   ],
-  formDefaults:()=>({status:'Aktif', jenis:'Harian', sat:'oh', mulai:today(), kode:'UP.'+String(DB.LABOR.length+1).padStart(2,'0')}),
+  formDefaults:()=>({status:'Aktif', jenis:'Harian', sat:'oh', upd:today(), sts_tarif:'Terkini',
+    kode:'UP.'+String(DB.LABOR.length+1).padStart(2,'0')}),
+  beforeSave:o=>{ o.sts_tarif = priceStatus(o.tarif, o.upd); },
   onFormShown:(el)=>{
     const j = $('[name="jenis"]',el), s = $('[name="sat"]',el);
     j.onchange = () => {
@@ -62,9 +72,46 @@ const cfg = {
     };
   },
   detail:r=>detailHTML([['Kode',r.kode],['Nama',r.nama],['Jenis Perhitungan',statusBadge(r.jenis)],
-    ['Satuan',r.sat],['Tarif Berlaku',money(r.tarif)],['Status',statusBadge(r.status)]])
+    ['Satuan',r.sat],['Tarif Berlaku',money(r.tarif)],['Berlaku Sejak',dmy(r.upd)],
+    ['Status Tarif',statusBadge(priceStatus(r.tarif,r.upd))+' <span class="text-ink3" style="font-size:11.5px">'+esc(priceAgeNote(r.upd))+'</span>'],
+    ['Status',statusBadge(r.status)]]),
+
+  /* rev-4 — Tambah Tarif Baru: cara kerja sama dengan Add New Price pada Bahan */
+  onAction:(k,r)=>{
+    if (k!=='rate') return false;
+    openModal({
+      title:'Tambah Tarif Baru', sub:r.kode+' — '+r.nama, size:'md',
+      body:`
+        <div class="alert-box info">${icon('info',16)}<div>Tarif yang sedang berlaku: <b>${rp(r.tarif)}</b> per ${esc(r.sat)} (sejak ${dmy(r.upd)}).<br>
+          <span class="text-ink3" style="font-size:12px">${esc(priceAgeNote(r.upd))}</span></div></div>
+        ${formHTML([
+          {key:'tarif_baru', label:'Tarif Baru (Rp)', type:'number', required:true},
+          {key:'mulai', label:'Berlaku Mulai', type:'date', required:true},
+          {key:'selisih', label:'Selisih terhadap Tarif Berlaku', type:'static', cls:'code-preview', full:true},
+          {key:'catatan', label:'Catatan Perubahan', type:'textarea', full:true,
+           ph:'contoh: penyesuaian upah tukang kayu semester II 2026'}
+        ], {mulai: today(), selisih:'—'})}`,
+      footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(close,el)=>{
+        const v = Number($('[name="tarif_baru"]',el).value);
+        if (!v){ toast('Tarif baru wajib diisi.','err'); return; }
+        r.tarif = v; r.upd = $('[name="mulai"]',el).value || today();
+        r.sts_tarif = priceStatus(r.tarif, r.upd);
+        saveDB(); drawTable(cfg); close();
+        toast('Tarif upah berhasil disimpan. Seluruh AHS yang memakai '+r.kode+' ditandai perlu ditinjau ulang.','ok');
+      }}],
+      onShown:el=>{
+        const inp = $('[name="tarif_baru"]',el), out = $('[data-static="selisih"]',el);
+        inp.oninput = () => {
+          const v = Number(inp.value)||0, d = v - r.tarif;
+          out.textContent = v ? `${d>=0?'+':''}${nf(d)}  (${((d/r.tarif)*100).toFixed(2)}%)` : '—';
+          out.style.color = d>=0 ? 'var(--danger)' : 'var(--ok)';
+        };
+      }
+    });
+    return true;
+  }
 };
-renderTable('#zone', cfg);
+renderTable('#zone-tbl', cfg);
 
 </script>
 </body>

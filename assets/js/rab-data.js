@@ -17,32 +17,32 @@ DB.ROLES = [
 ];
 
 DB.PERMISSIONS = [
-  {kode:'PRM-001', menu:'Dashboard',            modul:'Main',           url:'/dashboard',            fitur:['View','Export'], status:'Aktif'},
-  {kode:'PRM-002', menu:'Reference',            modul:'Master Data',    url:'/master/reference',     fitur:['View','Add','Edit','Delete','Import','Export'], status:'Aktif'},
-  {kode:'PRM-003', menu:'Material & Price',     modul:'Master Data',    url:'/master/material',      fitur:['View','Add','Edit','Delete','Import','Export'], status:'Aktif'},
-  {kode:'PRM-004', menu:'Labor Rate',           modul:'Master Data',    url:'/master/labor',         fitur:['View','Add','Edit','Delete','Import','Export'], status:'Aktif'},
-  {kode:'PRM-005', menu:'Material Breakdown',   modul:'Price Analysis', url:'/analysis/breakdown',   fitur:['View','Add','Edit','Delete','Import','Export','Approve'], status:'Aktif'},
-  {kode:'PRM-006', menu:'Unit Price Analysis',  modul:'Price Analysis', url:'/analysis/ahs',         fitur:['View','Add','Edit','Delete','Import','Export','Approve'], status:'Aktif'},
-  {kode:'PRM-007', menu:'Unit Price List',      modul:'Price Analysis', url:'/analysis/price-list',  fitur:['View','Export'], status:'Aktif'},
-  {kode:'PRM-008', menu:'Project & Quotation',  modul:'Project',        url:'/project',              fitur:['View','Add','Edit','Delete','Import','Export','Print','Finalize','Discount'], status:'Aktif'},
-  {kode:'PRM-009', menu:'Report',               modul:'Project',        url:'/report',               fitur:['View','Export'], status:'Aktif'},
-  {kode:'PRM-010', menu:'Permission',           modul:'User Access',    url:'/access/permission',    fitur:['View','Add','Edit','Delete','Import','Export'], status:'Aktif'},
-  {kode:'PRM-011', menu:'Role',                 modul:'User Access',    url:'/access/role',          fitur:['View','Add','Edit','Delete','Set Permission'], status:'Aktif'},
-  {kode:'PRM-012', menu:'User',                 modul:'User Access',    url:'/access/user',          fitur:['View','Add','Edit','Delete','Import','Export','Reset Password','Unlock'], status:'Aktif'},
-  {kode:'PRM-013', menu:'Setting',              modul:'System',         url:'/system/setting',       fitur:['View','Edit','History'], status:'Aktif'},
-  {kode:'PRM-014', menu:'Audit Trail & Log',    modul:'System',         url:'/system/audit',         fitur:['View','Export'], status:'Aktif'}
+  {kode:'PRM-001', key:'dashboard', menu:'Dashboard',            modul:'Main',           url:'/dashboard',            fitur:['View','Export'], status:'Aktif'},
+  {kode:'PRM-002', key:'reference', menu:'Reference',            modul:'Master Data',    url:'/master/reference',     fitur:['View','Add','Edit','Delete','Import','Export'], status:'Aktif'},
+  {kode:'PRM-003', key:'material-price', menu:'Material',            modul:'Master Data',    url:'/master/material',      fitur:['View','Add','Edit','Delete','Import','Export'], status:'Aktif'},
+  {kode:'PRM-004', key:'labor-rate', menu:'Upah Pekerja',         modul:'Master Data',    url:'/master/labor',         fitur:['View','Add','Edit','Delete','Import','Export'], status:'Aktif'},
+  {kode:'PRM-005', key:'material-breakdown', menu:'Material Breakdown',   modul:'Price Analysis', url:'/analysis/breakdown',   fitur:['View','Add','Edit','Delete','Import','Export','Approve'], status:'Aktif'},
+  {kode:'PRM-006', key:'unit-price-analysis', menu:'Unit Price Analysis',  modul:'Price Analysis', url:'/analysis/ahs',         fitur:['View','Add','Edit','Delete','Import','Export','Approve'], status:'Aktif'},
+  {kode:'PRM-007', key:'unit-price-list', menu:'Unit Price List',      modul:'Price Analysis', url:'/analysis/price-list',  fitur:['View','Export'], status:'Aktif'},
+  {kode:'PRM-008', key:'project', menu:'Project & Quotation',  modul:'Project',        url:'/project',              fitur:['View','Add','Edit','Delete','Import','Export','Print','Finalize','Discount'], status:'Aktif'},
+  {kode:'PRM-009', key:'report', menu:'Report',               modul:'Project',        url:'/report',               fitur:['View','Export'], status:'Aktif'},
+  {kode:'PRM-010', key:'permission', menu:'Permission',           modul:'User Access',    url:'/access/permission',    fitur:['View','Add','Edit','Delete','Import','Export'], status:'Aktif'},
+  {kode:'PRM-011', key:'role', menu:'Role',                 modul:'User Access',    url:'/access/role',          fitur:['View','Add','Edit','Delete','Set Permission'], status:'Aktif'},
+  {kode:'PRM-012', key:'user', menu:'User',                 modul:'User Access',    url:'/access/user',          fitur:['View','Add','Edit','Delete','Import','Export','Reset Password','Unlock'], status:'Aktif'},
+  {kode:'PRM-013', key:'setting', menu:'Setting',              modul:'System',         url:'/system/setting',       fitur:['View','Edit','History'], status:'Aktif'},
+  {kode:'PRM-014', key:'audit', menu:'Audit Trail & Log',    modul:'System',         url:'/system/audit',         fitur:['View','Export'], status:'Aktif'}
 ];
 
 /* hak akses efektif per role: page -> daftar fitur */
 DB.ROLE_PERM = {
-  ADM: {'*':['view','add','edit','delete','import','export','print']},
+  ADM: {'*':['view','add','edit','delete','import','export','print','approve','discount']},
   DIR: {dashboard:['view','export'], 'unit-price-list':['view','export'], project:['view','print','export','discount','approve'],
         report:['view','export'], audit:['view','export'], setting:['view'],
         'material-price':['view','export'], 'labor-rate':['view'], 'unit-price-analysis':['view'], 'material-breakdown':['view'], reference:['view']},
   MGR: {dashboard:['view','export'], project:['view','edit','print','export','discount','approve'], report:['view','export'],
         'unit-price-list':['view','export'], 'unit-price-analysis':['view','export'], 'material-breakdown':['view'],
         'material-price':['view','export'], 'labor-rate':['view','edit'], reference:['view'], setting:['view','edit'], user:['view']},
-  SPV: {dashboard:['view'], 'material-breakdown':['view','add','edit','delete','import','export'],
+  SPV: {dashboard:['view'], 'material-breakdown':['view','add','edit','delete','import','export','approve'],
         'unit-price-analysis':['view','add','edit','delete','import','export','approve'], 'unit-price-list':['view','export'],
         project:['view','edit','export','print'], report:['view','export'], 'material-price':['view','export'],
         'labor-rate':['view','add','edit','export'], reference:['view']},
@@ -85,15 +85,36 @@ DB.TYPE = [
   {kode:'ACC.01', kategori:'ACC', nama:'Handle Pintu',  jml_spec:1, status:'Aktif'},
   {kode:'ACC.02', kategori:'ACC', nama:'Rail Laci',     jml_spec:1, status:'Aktif'},
   {kode:'ACC.03', kategori:'ACC', nama:'Rail Pintu Sliding', jml_spec:1, status:'Aktif'},
-  {kode:'ACC.04', kategori:'ACC', nama:'Engsel',        jml_spec:2, status:'Aktif'}
+  {kode:'ACC.04', kategori:'ACC', nama:'Engsel',        jml_spec:2, status:'Aktif'},
+  /* rev-6 poin 12 (P-48): Type di bawah ini dilengkapi agar SELURUH kode
+     material pada data contoh dapat ditelusuri ke master Kategori. Tanpa ini,
+     cascading Category -> Type menghasilkan daftar kosong untuk kategori
+     MPL, HPL, VNR, CAT, dan GYP. Nama diambil dari nama material yang memakainya. */
+  {kode:'MPL.01', kategori:'MPL', nama:'Multiplek Lembaran', jml_spec:3, status:'Aktif'},
+  {kode:'HPL.01', kategori:'HPL', nama:'HPL Motif Kayu',     jml_spec:0, status:'Aktif'},
+  {kode:'VNR.01', kategori:'VNR', nama:'Veneer Sungkai',     jml_spec:0, status:'Aktif'},
+  {kode:'CAT.02', kategori:'CAT', nama:'Cat Duco',           jml_spec:0, status:'Aktif'},
+  {kode:'GYP.01', kategori:'GYP', nama:'Gypsum Board',       jml_spec:0, status:'Aktif'}
 ];
+/* rev-5 poin 3 (P-22): pemetaan brand dan supplier melekat pada Specification,
+   bukan lagi tab tersendiri. brands[] -> TB_M_SPEC_BRAND_D, sups[] -> TB_M_SPEC_SUPPLIER_D. */
 DB.SPEC = [
-  {kode:'01', type:'ACP.01', nama:'Tebal 0,3 mm', status:'Aktif'},
-  {kode:'02', type:'ACP.01', nama:'Tebal 0,5 mm', status:'Aktif'},
-  {kode:'01', type:'ACP.02', nama:'Tebal 0,21 mm', status:'Aktif'},
-  {kode:'02', type:'ACP.02', nama:'Tebal 0,3 mm', status:'Aktif'},
-  {kode:'01', type:'ACC.04', nama:'Engsel Sendok', status:'Aktif'},
-  {kode:'02', type:'ACC.04', nama:'Engsel Kupu-kupu / Lurus', status:'Aktif'}
+  {kode:'01', type:'ACP.01', nama:'Tebal 0,3 mm',  brands:['SV','GDS'], sups:['SUP-001'], status:'Aktif'},
+  {kode:'02', type:'ACP.01', nama:'Tebal 0,5 mm',  brands:['SV'],       sups:['SUP-001'], status:'Aktif'},
+  {kode:'01', type:'ACP.02', nama:'Tebal 0,21 mm', brands:['SV','GDS'], sups:['SUP-001'], status:'Aktif'},
+  {kode:'02', type:'ACP.02', nama:'Tebal 0,3 mm',  brands:['GDS'],      sups:['SUP-001'], status:'Aktif'},
+  {kode:'01', type:'ACC.04', nama:'Engsel Sendok', brands:['BL','DTC','HF','HT'], sups:['SUP-003'], status:'Aktif'},
+  {kode:'02', type:'ACC.04', nama:'Engsel Kupu-kupu / Lurus', brands:['DTC','HT'], sups:['SUP-003'], status:'Aktif'},
+  /* rev-6 poin 12 (P-48): spesifikasi untuk type yang kode materialnya memakai
+     segmen spesifikasi selain 00. Type yang seluruh materialnya memakai 00
+     (HPL.01, VNR.01, CAT.02, GYP.01, ACC.01 s.d. ACC.03) sengaja TIDAK diberi
+     baris di sini; pada form Material, type seperti itu otomatis menawarkan
+     satu pilihan '00 — Tanpa spesifikasi'. */
+  {kode:'09', type:'MPL.01', nama:'Tebal 9 mm',  brands:['00'], sups:['SUP-002'], status:'Aktif'},
+  {kode:'12', type:'MPL.01', nama:'Tebal 12 mm', brands:['00'], sups:['SUP-002'], status:'Aktif'},
+  {kode:'18', type:'MPL.01', nama:'Tebal 18 mm', brands:['00'], sups:['SUP-002'], status:'Aktif'},
+  {kode:'03', type:'ACR.01', nama:'Tebal 3 mm',  brands:['00'], sups:[], status:'Aktif'},
+  {kode:'03', type:'ACR.02', nama:'Tebal 3 mm',  brands:['00'], sups:[], status:'Aktif'}
 ];
 DB.BRAND = [
   {kode:'SV',  nama:'Seven',   jml_mat:12, status:'Aktif'},
@@ -105,6 +126,47 @@ DB.BRAND = [
   {kode:'TC',  nama:'Taco',    jml_mat:21, status:'Aktif'},
   {kode:'00',  nama:'Tanpa Brand', jml_mat:52, status:'Aktif'}
 ];
+/* ---------- Mapping Brand & Supplier per Category (rev-4)
+   Sumber: Data_Sample.xlsx sheet "KODE-Kategori" kolom BRAND dan SUPLIER / VENDOR.
+   Satu category boleh memiliki banyak brand; satu brand boleh dipasok banyak supplier. */
+DB.CAT_BRAND = [
+  {id:'CB-001', kategori:'ACP', brand:'SV',  utama:'Ya',    status:'Aktif'},
+  {id:'CB-002', kategori:'ACP', brand:'GDS', utama:'Tidak', status:'Aktif'},
+  {id:'CB-003', kategori:'ACC', brand:'BL',  utama:'Ya',    status:'Aktif'},
+  {id:'CB-004', kategori:'ACC', brand:'DTC', utama:'Tidak', status:'Aktif'},
+  {id:'CB-005', kategori:'ACC', brand:'HF',  utama:'Tidak', status:'Aktif'},
+  {id:'CB-006', kategori:'ACC', brand:'HT',  utama:'Tidak', status:'Aktif'},
+  {id:'CB-007', kategori:'ACC', brand:'TC',  utama:'Tidak', status:'Aktif'},
+  {id:'CB-008', kategori:'HPL', brand:'TC',  utama:'Ya',    status:'Aktif'},
+  {id:'CB-009', kategori:'HPL', brand:'GDS', utama:'Tidak', status:'Aktif'},
+  {id:'CB-010', kategori:'ACR', brand:'00',  utama:'Ya',    status:'Aktif'},
+  {id:'CB-011', kategori:'MPL', brand:'00',  utama:'Ya',    status:'Aktif'},
+  {id:'CB-012', kategori:'CAT', brand:'00',  utama:'Ya',    status:'Aktif'}
+];
+DB.BRAND_SUPPLIER = [
+  {id:'BS-001', kategori:'ACP', brand:'SV',  supplier:'SUP-001', utama:'Ya',    termin:'30 hari', status:'Aktif'},
+  {id:'BS-002', kategori:'ACP', brand:'GDS', supplier:'SUP-001', utama:'Ya',    termin:'30 hari', status:'Aktif'},
+  {id:'BS-003', kategori:'ACC', brand:'BL',  supplier:'SUP-003', utama:'Ya',    termin:'45 hari', status:'Aktif'},
+  {id:'BS-004', kategori:'ACC', brand:'DTC', supplier:'SUP-003', utama:'Ya',    termin:'45 hari', status:'Aktif'},
+  {id:'BS-005', kategori:'ACC', brand:'HF',  supplier:'SUP-003', utama:'Ya',    termin:'45 hari', status:'Aktif'},
+  {id:'BS-006', kategori:'HPL', brand:'TC',  supplier:'SUP-002', utama:'Ya',    termin:'14 hari', status:'Aktif'},
+  {id:'BS-007', kategori:'HPL', brand:'GDS', supplier:'SUP-002', utama:'Tidak', termin:'14 hari', status:'Aktif'},
+  {id:'BS-008', kategori:'ACR', brand:'00',  supplier:'SUP-004', utama:'Ya',    termin:'Tunai',   status:'Aktif'},
+  {id:'BS-009', kategori:'MPL', brand:'00',  supplier:'SUP-002', utama:'Ya',    termin:'14 hari', status:'Aktif'},
+  {id:'BS-010', kategori:'CAT', brand:'00',  supplier:'SUP-005', utama:'Ya',    termin:'30 hari', status:'Nonaktif'}
+];
+
+/* Kelompok bagian benda kerja — dropdown "Kelompok" pada Material Breakdown (rev-4) */
+DB.PARTGROUP = [
+  {kode:'BG-A', nama:'A. Body / Lambung', urut:1, desc:'Panel badan: lambung samping, top, bottom, backing.', status:'Aktif'},
+  {kode:'BG-B', nama:'B. Pintu',          urut:2, desc:'Daun pintu swing, sliding, dan lipat.',              status:'Aktif'},
+  {kode:'BG-C', nama:'C. Ambalan & Rak',  urut:3, desc:'Ambalan dalam, rak, dan sekat.',                     status:'Aktif'},
+  {kode:'BG-D', nama:'D. Pelapis',        urut:4, desc:'HPL, veneer, duco, dan pelapis tampak lainnya.',      status:'Aktif'},
+  {kode:'BG-E', nama:'E. Aksesoris',      urut:5, desc:'Handle, engsel, rail laci, dan kunci.',               status:'Aktif'},
+  {kode:'BG-F', nama:'F. Laci',           urut:6, desc:'Box laci, front laci, dan dasar laci.',               status:'Aktif'},
+  {kode:'BG-G', nama:'G. Lain-lain',      urut:7, desc:'Komponen yang tidak masuk kelompok di atas.',         status:'Aktif'}
+];
+
 DB.SUPPLIER = [
   {kode:'SUP-001', nama:'PT Sumber Panel Nusantara', kota:'Surabaya', kontak:'031-8291230', termin:'30 hari', status:'Aktif'},
   {kode:'SUP-002', nama:'CV Karya Kayu Jaya',        kota:'Sidoarjo', kontak:'031-8927741', termin:'14 hari', status:'Aktif'},
@@ -161,43 +223,43 @@ DB.WORKGROUP = [
 
 /* ---------- Material & harga ---------- */
 DB.MATERIAL = [
-  {kode:'ACP.01.01.SV.00', nama:'ACP PVDF Exterior 0,3 mm Ex. Seven', sat:'Lbr', harga:850000,  waste:0.05, supplier:'SUP-001', sts_harga:'Terkini',     upd:'2026-05-01', status:'Aktif'},
-  {kode:'ACP.01.02.SV.00', nama:'ACP PVDF Exterior 0,5 mm Ex. Seven', sat:'Lbr', harga:1150000, waste:0.05, supplier:'SUP-001', sts_harga:'Terkini',     upd:'2026-05-01', status:'Aktif'},
-  {kode:'ACP.02.01.GDS.00',nama:'ACP PE Interior 0,21 mm Ex. Goodsense', sat:'Lbr', harga:620000, waste:0.05, supplier:'SUP-001', sts_harga:'Kedaluwarsa', upd:'2026-01-15', status:'Aktif'},
-  {kode:'ACC.01.00.BL.00', nama:'Handle Pintu Ex. Blum',              sat:'unit',harga:83270,   waste:0,    supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', status:'Aktif'},
-  {kode:'ACC.02.00.DTC.00',nama:'Rail Laci 35 cm Ex. DTC (1 set = 2 bh)', sat:'set', harga:168000, waste:0, supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', status:'Aktif'},
-  {kode:'ACC.02.00.BL.00', nama:'Rail Laci Ex. Blum',                 sat:'unit',harga:320485,  waste:0,    supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', status:'Aktif'},
-  {kode:'ACC.03.00.BL.00', nama:'Rail Pintu Sliding Ex. Blum',        sat:'set', harga:1650000, waste:0,    supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', status:'Aktif'},
-  {kode:'ACC.04.02.DTC.00',nama:'Engsel Lurus Ex. DTC',               sat:'pcs', harga:26000,   waste:0,    supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', status:'Aktif'},
-  {kode:'MPL.01.18.00.00', nama:'Multiplek 18 mm 122 x 244 cm',       sat:'Lbr', harga:425000,  waste:0.08, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-06-10', status:'Aktif'},
-  {kode:'MPL.01.12.00.00', nama:'Multiplek 12 mm 122 x 244 cm',       sat:'Lbr', harga:310000,  waste:0.08, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-06-10', status:'Aktif'},
-  {kode:'MPL.01.09.00.00', nama:'Multiplek 9 mm 122 x 244 cm',        sat:'Lbr', harga:245000,  waste:0.08, supplier:'SUP-002', sts_harga:'Kedaluwarsa', upd:'2025-12-20', status:'Aktif'},
-  {kode:'HPL.01.00.TC.00', nama:'HPL Ex. Taco 0,8 mm Motif Kayu',     sat:'Lbr', harga:295000,  waste:0.10, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-07-01', status:'Aktif'},
-  {kode:'HPL.01.00.GDS.00',nama:'HPL Ex. Goodsense 0,8 mm Solid',     sat:'Lbr', harga:238000,  waste:0.10, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-07-01', status:'Aktif'},
-  {kode:'VNR.01.00.00.00', nama:'Veneer Sungkai 0,25 mm',             sat:'Lbr', harga:180000,  waste:0.12, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-06-10', status:'Aktif'},
-  {kode:'CAT.02.00.00.00', nama:'Cat Duco Doff Ex. Propan',           sat:'kg',  harga:145000,  waste:0.05, supplier:'SUP-005', sts_harga:'Belum Ada Harga', upd:'', status:'Aktif'},
-  {kode:'ACR.01.03.00.00', nama:'Acrylic Clear 3 mm',                 sat:'Lbr', harga:395000,  waste:0.06, supplier:'SUP-004', sts_harga:'Terkini',     upd:'2026-08-05', status:'Aktif'},
-  {kode:'ACR.02.03.00.00', nama:'Acrylic Warna 3 mm',                 sat:'Lbr', harga:430000,  waste:0.06, supplier:'SUP-004', sts_harga:'Terkini',     upd:'2026-08-05', status:'Aktif'},
-  {kode:'GYP.01.09.00.00', nama:'Gypsum Board 9 mm',                  sat:'Lbr', harga:78000,   waste:0.10, supplier:'SUP-001', sts_harga:'Terkini',     upd:'2026-07-20', status:'Nonaktif'}
+  {kode:'ACP.01.01.SV.00', nama:'ACP PVDF Exterior 0,3 mm Ex. Seven', sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:850000,  waste:0.05, supplier:'SUP-001', sts_harga:'Terkini',     upd:'2026-05-01', ket:'Uk. 122 x 244 cm / lbr', status:'Aktif'},
+  {kode:'ACP.01.02.SV.00', nama:'ACP PVDF Exterior 0,5 mm Ex. Seven', sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:1150000, waste:0.05, supplier:'SUP-001', sts_harga:'Terkini',     upd:'2026-05-01', ket:'Uk. 122 x 244 cm / lbr', status:'Aktif'},
+  {kode:'ACP.02.01.GDS.00',nama:'ACP PE Interior 0,21 mm Ex. Goodsense', sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:620000, waste:0.05, supplier:'SUP-001', sts_harga:'Kedaluwarsa', upd:'2026-01-15', ket:'Uk. 122 x 244 cm / lbr', status:'Aktif'},
+  {kode:'ACC.01.00.BL.00', nama:'Handle Pintu Ex. Blum',              sat:'unit', sat_beli:'unit', konversi:1,harga:83270,   waste:0,    supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', ket:'Dibeli per unit, tanpa konversi', status:'Aktif'},
+  {kode:'ACC.02.00.DTC.00',nama:'Rail Laci 35 cm Ex. DTC (1 set = 2 bh)', sat:'unit', sat_beli:'set', konversi:2, harga:168000, waste:0, supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', ket:'1 set = 2 bh rail', status:'Aktif'},
+  {kode:'ACC.02.00.BL.00', nama:'Rail Laci Ex. Blum',                 sat:'unit', sat_beli:'unit', konversi:1,harga:320485,  waste:0,    supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', ket:'Dibeli per unit, tanpa konversi', status:'Aktif'},
+  {kode:'ACC.03.00.BL.00', nama:'Rail Pintu Sliding Ex. Blum',        sat:'set', sat_beli:'set', konversi:1, harga:1650000, waste:0,    supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', ket:'1 set = 2 bh rail', status:'Aktif'},
+  {kode:'ACC.04.02.DTC.00',nama:'Engsel Lurus Ex. DTC',               sat:'pcs', sat_beli:'pcs', konversi:1, harga:26000,   waste:0,    supplier:'SUP-003', sts_harga:'Terkini',     upd:'2026-05-01', ket:'Dibeli per pcs, isi 1 pcs', status:'Aktif'},
+  {kode:'MPL.01.18.00.00', nama:'Multiplek 18 mm 122 x 244 cm',       sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:425000,  waste:0.08, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-06-10', ket:'Uk. 122 x 244 cm / lbr', status:'Aktif'},
+  {kode:'MPL.01.12.00.00', nama:'Multiplek 12 mm 122 x 244 cm',       sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:310000,  waste:0.08, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-06-10', ket:'Uk. 122 x 244 cm / lbr', status:'Aktif'},
+  {kode:'MPL.01.09.00.00', nama:'Multiplek 9 mm 122 x 244 cm',        sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:245000,  waste:0.08, supplier:'SUP-002', sts_harga:'Kedaluwarsa', upd:'2025-12-20', ket:'Uk. 122 x 244 cm / lbr', status:'Aktif'},
+  {kode:'HPL.01.00.TC.00', nama:'HPL Ex. Taco 0,8 mm Motif Kayu',     sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:295000,  waste:0.10, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-07-01', ket:'Uk. 122 x 244 cm / lembar', status:'Aktif'},
+  {kode:'HPL.01.00.GDS.00',nama:'HPL Ex. Goodsense 0,8 mm Solid',     sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:238000,  waste:0.10, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-07-01', ket:'Uk. 122 x 244 cm / lembar', status:'Aktif'},
+  {kode:'VNR.01.00.00.00', nama:'Veneer Sungkai 0,25 mm',             sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:180000,  waste:0.12, supplier:'SUP-002', sts_harga:'Terkini',     upd:'2026-06-10', ket:'Uk. 122 x 244 cm / lbr', status:'Aktif'},
+  {kode:'CAT.02.00.00.00', nama:'Cat Duco Doff Ex. Propan',           sat:'kg', sat_beli:'kg', konversi:1,  harga:145000,  waste:0.05, supplier:'SUP-005', sts_harga:'Belum Ada Harga', upd:'', ket:'Kebutuhan ± 0,25 kg/m2 untuk 2 lapis', status:'Aktif'},
+  {kode:'ACR.01.03.00.00', nama:'Acrylic Clear 3 mm',                 sat:'m2', sat_beli:'Lbr', konversi:2.0, harga:395000,  waste:0.06, supplier:'SUP-004', sts_harga:'Terkini',     upd:'2026-08-05', ket:'Uk. 122 x 244 cm / lbr', status:'Aktif'},
+  {kode:'ACR.02.03.00.00', nama:'Acrylic Warna 3 mm',                 sat:'m2', sat_beli:'Lbr', konversi:2.0, harga:430000,  waste:0.06, supplier:'SUP-004', sts_harga:'Terkini',     upd:'2026-08-05', ket:'Uk. 122 x 244 cm / lbr', status:'Aktif'},
+  {kode:'GYP.01.09.00.00', nama:'Gypsum Board 9 mm',                  sat:'m2', sat_beli:'Lbr', konversi:2.9768, harga:78000,   waste:0.10, supplier:'SUP-001', sts_harga:'Terkini',     upd:'2026-07-20', ket:'Uk. 122 x 244 cm / lbr', status:'Nonaktif'}
 ];
 
 DB.LABOR = [
-  {kode:'UP.01', nama:'Pekerja',                       jenis:'Harian',   sat:'oh', tarif:150000, status:'Aktif'},
-  {kode:'UP.02', nama:'Tukang Kayu',                   jenis:'Harian',   sat:'oh', tarif:200000, status:'Aktif'},
-  {kode:'UP.03', nama:'Tukang Cat',                    jenis:'Harian',   sat:'oh', tarif:200000, status:'Aktif'},
-  {kode:'UP.04', nama:'Tukang Besi / Alumunium',       jenis:'Harian',   sat:'oh', tarif:200000, status:'Aktif'},
-  {kode:'UP.05', nama:'Tukang Plafon Gypsum',          jenis:'Harian',   sat:'oh', tarif:200000, status:'Aktif'},
-  {kode:'UP.06', nama:'Tukang Batu',                   jenis:'Harian',   sat:'oh', tarif:200000, status:'Aktif'},
-  {kode:'UP.07', nama:'Tukang Listrik',                jenis:'Harian',   sat:'oh', tarif:200000, status:'Aktif'},
-  {kode:'UP.08', nama:'Kepala Tukang',                 jenis:'Harian',   sat:'oh', tarif:225000, status:'Aktif'},
-  {kode:'UP.09', nama:'Mandor',                        jenis:'Harian',   sat:'oh', tarif:250000, status:'Aktif'},
-  {kode:'UP.10', nama:'Upah Pemasangan Plywood',       jenis:'Borongan', sat:'m2', tarif:500000, status:'Aktif'},
-  {kode:'UP.11', nama:'Finishing Duco Doff / Matte',   jenis:'Borongan', sat:'m2', tarif:236000, status:'Aktif'},
-  {kode:'UP.12', nama:'Finishing Duco Sattin',         jenis:'Borongan', sat:'m2', tarif:264000, status:'Aktif'},
-  {kode:'UP.13', nama:'Finishing Duco Glossy',         jenis:'Borongan', sat:'m2', tarif:290000, status:'Aktif'},
-  {kode:'UP.14', nama:'Finishing Veneer Doff / Matte', jenis:'Borongan', sat:'m2', tarif:275000, status:'Aktif'},
-  {kode:'UP.15', nama:'Finishing Veneer Glossy',       jenis:'Borongan', sat:'m2', tarif:385000, status:'Aktif'},
-  {kode:'UP.16', nama:'Finishing Veneer Laker',        jenis:'Borongan', sat:'m2', tarif:825000, status:'Aktif'}
+  {kode:'UP.01', nama:'Pekerja',                       jenis:'Harian',   sat:'oh', tarif:150000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.02', nama:'Tukang Kayu',                   jenis:'Harian',   sat:'oh', tarif:200000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.03', nama:'Tukang Cat',                    jenis:'Harian',   sat:'oh', tarif:200000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.04', nama:'Tukang Besi / Alumunium',       jenis:'Harian',   sat:'oh', tarif:200000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.05', nama:'Tukang Plafon Gypsum',          jenis:'Harian',   sat:'oh', tarif:200000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.06', nama:'Tukang Batu',                   jenis:'Harian',   sat:'oh', tarif:200000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.07', nama:'Tukang Listrik',                jenis:'Harian',   sat:'oh', tarif:200000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.08', nama:'Kepala Tukang',                 jenis:'Harian',   sat:'oh', tarif:225000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.09', nama:'Mandor',                        jenis:'Harian',   sat:'oh', tarif:250000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.10', nama:'Upah Pemasangan Plywood',       jenis:'Borongan', sat:'m2', tarif:500000, sts_tarif:'Kedaluwarsa', upd:'2025-12-01', status:'Aktif'},
+  {kode:'UP.11', nama:'Finishing Duco Doff / Matte',   jenis:'Borongan', sat:'m2', tarif:236000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.12', nama:'Finishing Duco Sattin',         jenis:'Borongan', sat:'m2', tarif:264000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.13', nama:'Finishing Duco Glossy',         jenis:'Borongan', sat:'m2', tarif:290000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.14', nama:'Finishing Veneer Doff / Matte', jenis:'Borongan', sat:'m2', tarif:275000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.15', nama:'Finishing Veneer Glossy',       jenis:'Borongan', sat:'m2', tarif:385000, sts_tarif:'Terkini', upd:'2026-05-01', status:'Aktif'},
+  {kode:'UP.16', nama:'Finishing Veneer Laker',        jenis:'Borongan', sat:'m2', tarif:825000, sts_tarif:'Kedaluwarsa', upd:'2026-01-05', status:'Aktif'}
 ];
 
 /* ---------- Material breakdown (master) ---------- */
@@ -247,7 +309,7 @@ DB.AHS_D = {
         {kode:'MPL.01.09.00.00', nama:'Multiplek 9 mm',  sat:'Lbr', koef:2.2,  harga:245000},
         {kode:'HPL.01.00.TC.00', nama:'HPL Ex. Taco 0,8 mm', sat:'Lbr', koef:9.8, harga:295000},
         {kode:'ACC.01.00.BL.00', nama:'Handle Pintu Ex. Blum', sat:'unit', koef:4, harga:83270},
-        {kode:'ACC.04.02.DTC.00',nama:'Engsel Lurus Ex. DTC',  sat:'pcs',  koef:12, harga:26000}],
+        {kode:'ACC.04.02.DTC.00',nama:'Engsel Lurus Ex. DTC',  sat:'pcs', koef:12, harga:26000}],
     C: [{kode:'ALB', nama:'Alat Bantu',      jenis:'Persentase', nilai:0.02},
         {kode:'MOB', nama:'Mob. & Demob',    jenis:'Nilai Tetap', nilai:1500000}]
   }
@@ -256,46 +318,60 @@ DB.AHS_D = {
 /* ---------- Project ---------- */
 DB.PROJECT = [
   {no:'PRJ-2026-013', nama:'Fit Out Kantor Lantai 8 - Graha Mandiri', client:'CLT-001', lokasi:'Surabaya', tgl:'2026-09-12', nilai:1842500000, est:'Dewi Lestari',  status:'Draft'},
-  {no:'PRJ-2026-012', nama:'Renovasi Guest Room Lantai 5-7',          client:'CLT-002', lokasi:'Surabaya', tgl:'2026-09-05', nilai:3125800000, est:'Budi Prasetyo',status:'Sent'},
-  {no:'PRJ-2026-011', nama:'Interior Unit Tipe A - Tower 2',          client:'CLT-003', lokasi:'Surabaya', tgl:'2026-08-28', nilai:865400000,  est:'Dewi Lestari',  status:'Won'},
-  {no:'PRJ-2026-010', nama:'Banking Hall & Ruang Rapat',              client:'CLT-004', lokasi:'Jakarta',  tgl:'2026-08-14', nilai:2410000000, est:'Budi Prasetyo',status:'Sent'},
-  {no:'PRJ-2026-009', nama:'Nurse Station & Ruang Tunggu',            client:'CLT-005', lokasi:'Surabaya', tgl:'2026-07-30', nilai:1180250000, est:'Dewi Lestari',  status:'Won'},
-  {no:'PRJ-2026-008', nama:'Booth Retail Mall Tunjungan',             client:'CLT-006', lokasi:'Malang',   tgl:'2026-07-11', nilai:342700000,  est:'Fajar Nugroho', status:'Lost'},
-  {no:'PRJ-2026-007', nama:'Lobby & Front Desk Renovation',           client:'CLT-002', lokasi:'Surabaya', tgl:'2026-06-22', nilai:1567900000, est:'Budi Prasetyo',status:'Won'}
+  {no:'PRJ-2026-012', nama:'Renovasi Guest Room Lantai 5-7',          client:'CLT-002', lokasi:'Surabaya', tgl:'2026-09-05', nilai:3125800000, est:'Budi Prasetyo',status:'Submit'},
+  {no:'PRJ-2026-011', nama:'Interior Unit Tipe A - Tower 2',          client:'CLT-003', lokasi:'Surabaya', tgl:'2026-08-28', nilai:865400000,  est:'Dewi Lestari',  status:'Succeed'},
+  {no:'PRJ-2026-010', nama:'Banking Hall & Ruang Rapat',              client:'CLT-004', lokasi:'Jakarta',  tgl:'2026-08-14', nilai:2410000000, est:'Budi Prasetyo',status:'Submit'},
+  {no:'PRJ-2026-009', nama:'Nurse Station & Ruang Tunggu',            client:'CLT-005', lokasi:'Surabaya', tgl:'2026-07-30', nilai:1180250000, est:'Dewi Lestari',  status:'Succeed'},
+  {no:'PRJ-2026-008', nama:'Booth Retail Mall Tunjungan',             client:'CLT-006', lokasi:'Malang',   tgl:'2026-07-11', nilai:342700000,  est:'Fajar Nugroho', status:'Failed'},
+  {no:'PRJ-2026-007', nama:'Lobby & Front Desk Renovation',           client:'CLT-002', lokasi:'Surabaya', tgl:'2026-06-22', nilai:1567900000, est:'Budi Prasetyo',status:'Succeed'}
 ];
 
 /* BOQ project terpilih (PRJ-2026-013) */
 DB.BOQ = [
-  {t:'grp',  no:'I',   uraian:'PEKERJAAN PERSIAPAN'},
+  /* rev-6 poin 19 (P-55): judul kelompok diselaraskan dengan master Work Group
+     (TB_M_WORKGROUP). Sebelumnya BOQ memakai "PEKERJAAN PARTISI & PLAFON" yang
+     tidak ada pada master — master memisahkan Partisi, Plafon, dan Wallpanel —
+     sehingga rekapitulasi per kelompok tidak dapat dijumlahkan lintas project.
+     Kolom wg menyimpan kode masternya; nomor romawi dihitung ulang oleh
+     renumberBOQ() pada project-detail.html. */
+  {t:'grp',  no:'I',   uraian:'PEKERJAAN PERSIAPAN', wg:'WG-07'},
   {t:'item', no:'1.1', kode:'PS.1', uraian:'Proteksi lantai & dinding existing', sat:'M2',   vol:420,  harga:35000,    adj:false},
   {t:'item', no:'1.2', kode:'PS.2', uraian:'Bongkaran partisi existing',         sat:'M2',   vol:86,   harga:95000,    adj:false},
   {t:'sub',  no:'',    uraian:'Subtotal Pekerjaan Persiapan'},
-  {t:'grp',  no:'II',  uraian:'PEKERJAAN FURNITURE'},
+  {t:'grp',  no:'II',  uraian:'PEKERJAAN FURNITURE', wg:'WG-01'},
   {t:'item', no:'2.1', kode:'WD.2', uraian:'Wardrobe 240x60x320 finishing HPL',  sat:'Unit', vol:6,    harga:80529700, adj:false},
   {t:'note', no:'',    uraian:'Spesifikasi: rangka multiplek 18 mm, pelapis HPL Ex. Taco, handle & engsel Ex. Blum.'},
   {t:'item', no:'2.2', kode:'KS.1', uraian:'Kitchen set bawah 300x60x85 - HPL',  sat:'Unit', vol:2,    harga:34750000, adj:false},
   {t:'item', no:'2.3', kode:'KS.2', uraian:'Kitchen set atas 300x35x70 - HPL',   sat:'Unit', vol:2,    harga:18420000, adj:false},
   {t:'item', no:'2.4', kode:'CR.1', uraian:'Credenza 180x45x75 - Duco Glossy',   sat:'Unit', vol:3,    harga:22850000, adj:true},
   {t:'sub',  no:'',    uraian:'Subtotal Pekerjaan Furniture'},
-  {t:'grp',  no:'III', uraian:'PEKERJAAN PARTISI & PLAFON'},
+  {t:'grp',  no:'III', uraian:'PEKERJAAN PARTISI', wg:'WG-02'},
   {t:'item', no:'3.1', kode:'PT.1', uraian:'Partisi gypsum double rangka hollow',sat:'M2',   vol:168,  harga:485000,   adj:false},
-  {t:'item', no:'3.2', kode:'PL.1', uraian:'Plafon gypsum rangka hollow 60x60',  sat:'M2',   vol:392,  harga:365000,   adj:false},
-  {t:'item', no:'3.3', kode:'EL-01.1', uraian:'Wallpanel pilar / kolom - HPL',   sat:'Unit', vol:4,    harga:68248000, adj:false},
-  {t:'sub',  no:'',    uraian:'Subtotal Pekerjaan Partisi & Plafon'},
-  {t:'grp',  no:'IV',  uraian:'PEKERJAAN LANTAI'},
-  {t:'item', no:'4.1', kode:'LT.1', uraian:'Lantai vinyl roll 2 mm',             sat:'M2',   vol:392,  harga:295000,   adj:false},
+  {t:'sub',  no:'',    uraian:'Subtotal Pekerjaan Partisi'},
+  {t:'grp',  no:'IV',  uraian:'PEKERJAAN PLAFON', wg:'WG-03'},
+  {t:'item', no:'4.1', kode:'PL.1', uraian:'Plafon gypsum rangka hollow 60x60',  sat:'M2',   vol:392,  harga:365000,   adj:false},
+  {t:'sub',  no:'',    uraian:'Subtotal Pekerjaan Plafon'},
+  {t:'grp',  no:'V',   uraian:'PEKERJAAN WALLPANEL', wg:'WG-05'},
+  {t:'item', no:'5.1', kode:'EL-01.1', uraian:'Wallpanel pilar / kolom - HPL',   sat:'Unit', vol:4,    harga:68248000, adj:false},
+  {t:'sub',  no:'',    uraian:'Subtotal Pekerjaan Wallpanel'},
+  {t:'grp',  no:'VI',  uraian:'PEKERJAAN LANTAI', wg:'WG-04'},
+  {t:'item', no:'6.1', kode:'LT.1', uraian:'Lantai vinyl roll 2 mm',             sat:'M2',   vol:392,  harga:295000,   adj:false},
   {t:'sub',  no:'',    uraian:'Subtotal Pekerjaan Lantai'}
 ];
+
 DB.PROJECT_PARAM = {margin:0.15, jasa:0.10, ppn:0.11, bulat:1000, tgl_harga:'2026-09-01', valid:30, disc:0};
 DB.REVISI = [
   {rev:'R0', tgl:'2026-09-12', nilai:1842500000, selisih:0,          status:'Draft', oleh:'Dewi Lestari', alasan:'Versi awal.'},
-  {rev:'R1', tgl:'2026-09-15', nilai:1798300000, selisih:-44200000,  status:'Sent',  oleh:'Dewi Lestari', alasan:'Permintaan client: volume wardrobe berkurang 1 unit.'},
+  {rev:'R1', tgl:'2026-09-15', nilai:1798300000, selisih:-44200000,  status:'Submit', oleh:'Dewi Lestari', alasan:'Permintaan client: volume wardrobe berkurang 1 unit.'},
   {rev:'R2', tgl:'2026-09-17', nilai:1826750000, selisih:28450000,   status:'Draft', oleh:'Budi Prasetyo',alasan:'Pembaruan harga multiplek ke harga terkini.'}
 ];
+/* rev-5 poin 7 (P-26): berkas lampiran memiliki jenis; berkas berjenis
+   "Gambar Kerja" menjadi sumber Lampiran Gambar Kerja saat unduh quotation. */
 DB.ATTACH = [
-  {nama:'Gambar Kerja Lt-8 Rev C.pdf', ukuran:'4,2 MB', oleh:'Dewi Lestari', waktu:'12/09/2026 10:22', drive:'Google Drive'},
-  {nama:'Surat Permintaan Penawaran.pdf', ukuran:'820 KB', oleh:'Dewi Lestari', waktu:'12/09/2026 10:24', drive:'Google Drive'},
-  {nama:'Foto Lokasi Existing.zip', ukuran:'18,6 MB', oleh:'Fajar Nugroho', waktu:'13/09/2026 08:05', drive:'Google Drive'}
+  {nama:'Gambar Kerja Lt-8 Rev C.pdf', jenis:'Gambar Kerja', ukuran:'4,2 MB', oleh:'Dewi Lestari', waktu:'12/09/2026 10:22', drive:'Google Drive'},
+  {nama:'Gambar Kerja Pantry Rev A.pdf', jenis:'Gambar Kerja', ukuran:'2,7 MB', oleh:'Dewi Lestari', waktu:'12/09/2026 10:26', drive:'Google Drive'},
+  {nama:'Surat Permintaan Penawaran.pdf', jenis:'Lainnya', ukuran:'820 KB', oleh:'Dewi Lestari', waktu:'12/09/2026 10:24', drive:'Google Drive'},
+  {nama:'Foto Lokasi Existing.zip', jenis:'Lainnya', ukuran:'18,6 MB', oleh:'Fajar Nugroho', waktu:'13/09/2026 08:05', drive:'Google Drive'}
 ];
 
 /* ---------- Setting ---------- */
@@ -320,7 +396,7 @@ DB.AUDIT = [
   {waktu:'18/09/2026 09:12', user:'dewi.lestari',  modul:'Project',          aksi:'Insert', data:'PRJ-2026-013',    grp:'Legal',       ket:'Project baru dibuat'},
   {waktu:'18/09/2026 08:55', user:'budi.prasetyo', modul:'Unit Price Analysis', aksi:'Update', data:'WD.2',         grp:'Operasional', ket:'Koefisien HPL 9,2 → 9,8'},
   {waktu:'18/09/2026 08:12', user:'andi.wijaya',   modul:'User Access',      aksi:'Update', data:'U007',            grp:'Legal',       ket:'Akun dikunci: 5x gagal login'},
-  {waktu:'17/09/2026 16:48', user:'maria.santoso', modul:'Project',          aksi:'Approve',data:'PRJ-2026-012',    grp:'Legal',       ket:'Status Draft → Sent'},
+  {waktu:'17/09/2026 16:48', user:'maria.santoso', modul:'Project',          aksi:'Approve',data:'PRJ-2026-012',    grp:'Legal',       ket:'Status Draft → Submit'},
   {waktu:'17/09/2026 15:20', user:'rina.purnama',  modul:'Material & Price', aksi:'Import', data:'42 baris',        grp:'Operasional', ket:'Upload harga periode September'},
   {waktu:'17/09/2026 14:02', user:'budi.prasetyo', modul:'Material Breakdown',aksi:'Insert',data:'BD-WD-004',       grp:'Operasional', ket:'Duplikasi dari BD-WD-001'},
   {waktu:'17/09/2026 11:33', user:'dewi.lestari',  modul:'Project',          aksi:'Print',  data:'PRJ-2026-011',    grp:'Legal',       ket:'Cetak quotation R1 (PDF)'},

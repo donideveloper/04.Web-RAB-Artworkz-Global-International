@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="assets/css/rab.css">
 <script>(function(){try{var t=localStorage.getItem('rab_theme')||'light';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 </head>
-<body data-page="unit-price-analysis" data-title="AHS — Penyusunan">
+<body data-page="unit-price-analysis" data-title="AHS — Penyusunan" data-altperm="unit-price-list">
 
 <div class="app">
   <div class="side-backdrop" id="side-backdrop"></div>
@@ -30,13 +30,36 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
 
 const KODE = new URLSearchParams(location.search).get('kode') || 'WD.2';
 const ahs = DB.AHS.find(a=>a.kode===KODE) || DB.AHS[2];
-DB.AHS_D[ahs.kode] = DB.AHS_D[ahs.kode] || JSON.parse(JSON.stringify(DB.AHS_D['WD.2']));
+const FROM = new URLSearchParams(location.search).get('from') || '';
+
+/* rev-6 poin 8 — rincian contoh yang konsisten.
+   Bila satu AHS belum memiliki rincian komponen, prototipe menyalin susunan
+   AHS WD.2 sebagai contoh. Sebelumnya salinan itu dipakai apa adanya sehingga
+   hasil F-nya tidak sama dengan kolom Harga Satuan pada tabel. Kini seluruh
+   koefisien dan biaya tetap diskalakan supaya D x (1 + Margin) tepat sama
+   dengan Harga Satuan yang terdaftar, sehingga angka pada tabel, jendela
+   Detail, dan halaman ini selalu cocok. */
+if (!DB.AHS_D[ahs.kode]){
+  const c = JSON.parse(JSON.stringify(DB.AHS_D['WD.2']));
+  const sA = c.A.reduce((s,x)=>s+x.koef*x.harga,0);
+  const sB = c.B.reduce((s,x)=>s+x.koef*x.harga,0);
+  const sC = c.C.reduce((s,x)=>s+(x.jenis==='Persentase'?(sA+sB)*x.nilai:x.nilai),0);
+  const target = (Number(ahs.hsp)||0)/(1+(Number(ahs.margin)||0));
+  const rasio  = (sA+sB+sC) > 0 ? target/(sA+sB+sC) : 1;
+  const bulat  = n => Math.round(n*10000)/10000;
+  c.A.forEach(x=>x.koef = bulat(x.koef*rasio));
+  c.B.forEach(x=>x.koef = bulat(x.koef*rasio));
+  c.C.forEach(x=>{ if (x.jenis!=='Persentase') x.nilai = Math.round(x.nilai*rasio); });
+  c.contoh = true;
+  DB.AHS_D[ahs.kode] = c;
+}
 const d = DB.AHS_D[ahs.kode];
 const canMargin = can('unit-price-analysis','approve');
 const RO = !can('unit-price-analysis','edit');
@@ -51,17 +74,18 @@ const F = () => D()+E();
 $('#head').innerHTML = `
 <div class="card"><div class="card-tb">
   <div>
-    <a href="unit-price-analysis.html" class="btn btn-ghost btn-sm mb-2">${icon('back',14)} Back to list</a>
+    <a href="${FROM==='upl'?'unit-price-list.html':'unit-price-analysis.html'}" class="btn btn-ghost btn-sm mb-2">${icon('back',14)} ${FROM==='upl'?'Back to Unit Price List':'Back to list'}</a>
     <h2>${esc(ahs.kode)} &middot; ${esc(ahs.nama)}</h2>
     <p>Kelompok ${esc((DB.WORKGROUP.find(w=>w.kode===ahs.grp)||{}).nama||'-')} &middot; Satuan ${esc(ahs.sat)} &middot;
        Breakdown rujukan ${esc(ahs.bd||'-')} &middot; Margin ${pct(ahs.margin)} &middot; ${statusBadge(ahs.status)}</p>
   </div>
   <div class="acts">
-    <button class="btn btn-ghost" id="btn-sim">${icon('trend',15)} Price Simulation</button>
-    ${RO?'':`<button class="btn btn-ghost" id="btn-load">${icon('download',15)} Load from Breakdown</button>
+    <button class="btn btn-ghost" id="btn-sim" title="Membandingkan harga komponen tersimpan dengan harga terkini pada Bahan dan Upah">${icon('trend',15)} Price Simulation</button>
+    ${RO?'':`<button class="btn btn-ghost" id="btn-load" title="Mengisi blok B (Bahan) dari rekapitulasi Material Breakdown rujukan">${icon('download',15)} Load from Breakdown</button>
     <button class="btn btn-primary" id="btn-save">${icon('save',15)} Save AHS</button>`}
   </div>
 </div></div>
+${d.contoh?`<div class="alert-box info">${icon('info',16)}<div>Rincian komponen A, B, dan C pada layar ini adalah <b>contoh</b>: susunannya disalin dari AHS WD.2 lalu koefisiennya diskalakan agar Harga Satuan (F) tepat sama dengan ${rp(ahs.hsp)} pada daftar. Ganti isinya dengan komponen yang sebenarnya.</div></div>`:''}
 ${ahs.review?`<div class="alert-box warn">${icon('alert',16)}<div>AHS ini perlu ditinjau ulang: harga salah satu komponen penyusunnya telah berubah sejak terakhir disimpan.</div></div>`:''}
 ${canMargin?'':roleNote('Role <b>'+curRole()+'</b>: margin terkunci. Hanya role SPV ke atas yang dapat mengubah persentase margin.')}`;
 
@@ -182,7 +206,10 @@ draw(); drawCalc();
 
 $('#btn-sim').onclick = () => openModal({
   title:'Price Simulation', sub:'Perbandingan harga tersimpan dengan harga terkini per baris komponen.', size:'lg',
-  body:`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Komponen</th><th class="right">Harga Tersimpan</th>
+  body:`<div class="alert-box info mb-3">${icon('info',16)}<div>Membandingkan harga komponen yang <b>tersimpan pada AHS ini</b>
+      dengan <b>harga terkini</b> pada menu Bahan dan Upah. Dipakai untuk melihat dampak kenaikan harga
+      terhadap harga satuan pekerjaan sebelum diterapkan.</div></div>
+    <div class="tbl-wrap"><table class="dt"><thead><tr><th>Komponen</th><th class="right">Harga Tersimpan</th>
     <th class="right">Harga Terkini</th><th class="right">Selisih</th></tr></thead><tbody>
     ${d.B.map(r=>{
       const m = DB.MATERIAL.find(x=>x.kode===r.kode);
@@ -195,8 +222,44 @@ $('#btn-sim').onclick = () => openModal({
   footer:[{label:'Close'}]
 });
 if ($('#btn-load')) $('#btn-load').onclick = () => {
-  if (!ahs.bd){ toast('AHS ini belum memiliki breakdown rujukan.','warn'); return; }
-  toast('Blok B diisi dari rekapitulasi breakdown '+ahs.bd+'.');
+  /* rev-4 — mengisi blok B (Bahan) dari rekapitulasi Material Breakdown.
+     Sumber data: menu Price Analysis > Material Breakdown (tabel TB_T_BREAKDOWN_D).
+     Koefisien = Volume + Waste tiap material pada breakdown rujukan. */
+  openModal({
+    title:'Load from Breakdown', sub:'Mengisi blok B — Bahan dari rekapitulasi Material Breakdown.', size:'md',
+    body:`<div class="alert-box info">${icon('info',16)}<div>Blok B diisi dari rekapitulasi kebutuhan material pada menu
+        <b>Material Breakdown</b>. Koefisien tiap material diambil dari kolom <b>Volume + Waste</b> breakdown,
+        sehingga rincian ukuran tidak perlu diketik ulang di sini. Blok A (Upah) dan C (Biaya Lain) tidak berubah.</div></div>` +
+      formHTML([
+        {key:'bd', label:'Breakdown Rujukan', type:'select', required:true, full:true,
+         options:()=>DB.BREAKDOWN.map(b=>({v:b.kode, l:b.kode+' — '+b.nama+' ('+b.finishing+') · '+b.status}))},
+        {key:'mode', label:'Perlakuan Blok B', type:'select', full:true,
+         options:['Ganti seluruh isi blok B','Tambahkan ke blok B yang ada']}
+      ], {bd: ahs.bd || (DB.BREAKDOWN[0]||{}).kode}),
+    footer:[{label:'Cancel'},{label:'Load', cls:'btn-primary', ic:'download', onClick:(c,el)=>{
+      const o = readForm(el,[{key:'bd'},{key:'mode'}]);
+      const hdr = DB.BREAKDOWN.find(b=>b.kode===o.bd);
+      const src = DB.BREAKDOWN_D[o.bd];
+      if (!hdr || !src || !src.length){ toast('Breakdown tersebut belum memiliki baris material.','err'); return; }
+      if (hdr.status!=='Disetujui'){
+        toast('Breakdown '+hdr.kode+' berstatus '+hdr.status+'. Hanya breakdown Disetujui yang boleh ditarik ke AHS.','warn');
+        return;
+      }
+      const matOf = k => DB.MATERIAL.find(m=>m.kode===k) || {nama:k, harga:0, sat:'-'};
+      const volOf = r => (r.p && r.l) ? r.p*r.l*r.jml : r.jml;
+      const agg = {};
+      src.forEach(r=>{ agg[r.mat] = (agg[r.mat]||0) + volOf(r)*(1+(r.waste||0)); });
+      const isi = Object.entries(agg).map(([k,v])=>{
+        const m = matOf(k);
+        return {kode:k, nama:m.nama, sat:m.sat, koef:Number(v.toFixed(4)), harga:m.harga};
+      });
+      d.B = o.mode==='Tambahkan ke blok B yang ada' ? d.B.concat(isi) : isi;
+      ahs.bd = o.bd;
+      logAudit('Unit Price Analysis','Update',ahs.kode,'Blok B diisi dari breakdown '+o.bd+' ('+isi.length+' baris)');
+      saveDB(); draw(); drawCalc(); c();
+      toast(isi.length+' baris material dimuat dari breakdown '+o.bd+'. Tekan Save AHS untuk menyimpan harga satuan baru.');
+    }}]
+  });
 };
 if ($('#btn-save')) $('#btn-save').onclick = () => {
   ahs.hsp = Math.round(F()); ahs.review = false; saveDB();

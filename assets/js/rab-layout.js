@@ -15,18 +15,27 @@ const NAV = [
   {cap:'Main'},
   {k:'dashboard', t:'Dashboard', ic:'grid', href:'dashboard.html', crumb:'Main'},
   {cap:'Master Data'},
+  /* rev-5 poin 8 (P-27): Brand dan Supplier naik ke atas karena keduanya
+     menjadi isi pilihan pada Specification.
+     rev-6 poin 9 (P-45): menu "Kode Kategori" dinamai "Kategori".
+     rev-6 poin 20 (P-56): nama "Kelompok Breakdown" dipertahankan (sempat
+     diubah menjadi "Kelompok Barang" pada P-46, lalu dikembalikan).
+     Kunci menu, nama berkas, dan rencana nama tabel tidak berubah. */
   {k:'reference', t:'Reference', ic:'layers', crumb:'Master Data', sub:[
-    {k:'reference-category', t:'Category, Type & Spec', href:'reference-category.html'},
     {k:'reference-brand',    t:'Brand',                 href:'reference-brand.html'},
     {k:'reference-supplier', t:'Supplier',              href:'reference-supplier.html'},
+    {k:'reference-category', t:'Kategori',           href:'reference-category.html'},
     {k:'reference-client',   t:'Client',                href:'reference-client.html'},
     {k:'reference-uom',      t:'Unit of Measure',       href:'reference-uom.html'},
     {k:'reference-finishing',t:'Finishing',             href:'reference-finishing.html'},
     {k:'reference-building', t:'Building Type',         href:'reference-building.html'},
-    {k:'reference-workgroup',t:'Work Group',            href:'reference-workgroup.html'}
+    {k:'reference-workgroup',t:'Work Group',            href:'reference-workgroup.html'},
+    {k:'reference-partgroup',t:'Kelompok Breakdown',     href:'reference-partgroup.html'}
   ]},
-  {k:'material-price', t:'Material & Price', ic:'box',   href:'material-price.html', crumb:'Master Data'},
-  {k:'labor-rate',     t:'Labor Rate',       ic:'users', href:'labor-rate.html',     crumb:'Master Data'},
+  /* rev-6 poin 1 & 2: menu "Bahan" menjadi "Material" dan menu "Upah" menjadi
+     "Upah Pekerja". Nama teknis (kunci menu, nama berkas, nama tabel) tetap. */
+  {k:'material-price', t:'Material',     ic:'box',   href:'material-price.html', crumb:'Master Data'},
+  {k:'labor-rate',     t:'Upah Pekerja', ic:'users', href:'labor-rate.html',     crumb:'Master Data'},
   {cap:'Price Analysis'},
   {k:'material-breakdown',   t:'Material Breakdown',  ic:'list',  href:'material-breakdown.html',   crumb:'Price Analysis'},
   {k:'unit-price-analysis',  t:'Unit Price Analysis', ic:'calc',  href:'unit-price-analysis.html',  crumb:'Price Analysis'},
@@ -37,6 +46,9 @@ const NAV = [
   {cap:'User Access'},
   {k:'permission', t:'Permission', ic:'shield', href:'permission.html', crumb:'User Access'},
   {k:'role',       t:'Role',       ic:'key',    href:'role.html',       crumb:'User Access'},
+  /* rev-6 poin 6: matriks hak akses seluruh menu terhadap seluruh role,
+     dibaca dari data yang sama dengan halaman Role — Set Permission. */
+  {k:'role-matrix',t:'Matrix Akses Menu', ic:'grid2', href:'role-matrix.html', crumb:'User Access'},
   {k:'user',       t:'User',       ic:'user',   href:'user.html',       crumb:'User Access'},
   {cap:'System'},
   {k:'setting', t:'Setting',              ic:'settings', href:'setting.html',     crumb:'System'},
@@ -65,7 +77,10 @@ function roleName(){ return (DB.ROLES.find(r => r.kode === curRole()) || {}).nam
 function pagePerms(page){
   const map = DB.ROLE_PERM[curRole()] || {};
   if (map['*']) return map['*'];
-  const base = String(page || PAGE).replace(/^reference-.*/, 'reference');
+  /* halaman turunan memakai hak akses menu induknya */
+  const base = String(page || PAGE)
+    .replace(/^reference-.*/, 'reference')
+    .replace(/^role-matrix$/, 'role');
   return map[base] || [];
 }
 function can(page, feature){ return pagePerms(page).includes(String(feature).toLowerCase()); }
@@ -95,7 +110,7 @@ function buildShell(){
         return `<a class="nav-item ${n.k === NAVKEY ? 'active' : ''}" href="${n.href}">${icon(n.ic, 16)} ${esc(n.t)}</a>`;
       }).join('')}
     </nav>
-    <div class="side-foot">UI Prototype · FSD v2.2<br>Seluruh data adalah data contoh.</div>`;
+    <div class="side-foot">UI Prototype · FSD v2.3<br>Seluruh data adalah data contoh.</div>`;
 
   const meta = flatNav().find(n => n.k === NAVKEY) || {t: TITLE || 'Web RAB', crumb: ''};
   $('#topbar').innerHTML = `
@@ -103,7 +118,10 @@ function buildShell(){
       <button class="icon-btn tb-burger" id="btn-side">${icon('menu', 18)}</button>
       <div>
         <div class="tb-crumb">${esc(meta.crumb || '')}</div>
-        <h1>${esc(TITLE || meta.t)}</h1>
+        <h1>${esc(TITLE || meta.t)}
+          <button class="info-btn" id="btn-info" type="button"
+            title="Informasi modul: sumber data, rumus, dan role">${icon('info', 15)}</button>
+        </h1>
       </div>
     </div>
     <div class="d-flex align-items-center gap-2">
@@ -161,6 +179,8 @@ function buildShell(){
     toast('Tampilan diubah sebagai role ' + a.dataset.role + '.', 'info');
     setTimeout(() => location.reload(), 500);
   });
+  /* tombol (i) — keterangan modul (rev-4) */
+  if ($('#btn-info')) $('#btn-info').onclick = () => openModuleInfo();
   $('#btn-side').onclick = () => { $('#sidebar').classList.toggle('show'); $('#side-backdrop').classList.toggle('show'); };
   $('#side-backdrop').onclick = () => { $('#sidebar').classList.remove('show'); $('#side-backdrop').classList.remove('show'); };
   $('#act-logout').onclick = e => { e.preventDefault(); sessionStorage.clear(); location.href = 'index.html'; };
@@ -198,8 +218,13 @@ function buildShell(){
     applyTheme();
   };
 
-  /* guard halaman: tanpa permission view */
-  if (!['dashboard', 'upload'].includes(PAGE) && !can(PAGE, 'view')){
+  /* guard halaman: tanpa permission view
+     rev-6 poin 8: halaman boleh menyebut menu lain yang juga memberi hak baca
+     (data-altperm). Dipakai oleh rincian AHS yang dibuka dari Unit Price List:
+     role yang hanya berhak pada Unit Price List tetap dapat membacanya. */
+  const ALT = (document.body.dataset.altperm || '').split(',').map(s => s.trim()).filter(Boolean);
+  const bolehBaca = can(PAGE, 'view') || ALT.some(a => can(a, 'view'));
+  if (!['dashboard', 'upload'].includes(PAGE) && !bolehBaca){
     const z = $('#zone');
     z.style.display = 'none';                       /* isi asli disembunyikan, tidak dihapus */
     const nx = document.createElement('div');

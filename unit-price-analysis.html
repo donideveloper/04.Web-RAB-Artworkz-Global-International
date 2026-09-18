@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -41,11 +42,17 @@ renderTable('#zone', {
      render:r=>(DB.WORKGROUP.find(w=>w.kode===r.grp)||{}).nama||r.grp},
     {key:'sat',  label:'Satuan', width:'92px', filter:'select', options:['Unit','M2','M1']},
     {key:'hsp',  label:'Harga Satuan Pekerjaan', width:'180px', align:'right', filter:false, render:r=>money(r.hsp)},
-    {key:'status',label:'Status', width:'180px', filter:'select', options:['Draft','Menunggu Verifikasi','Disetujui'], render:r=>statusBadge(r.status)},
+    {key:'status',label:'Status', width:'180px', filter:'select', options:['Draft','Menunggu Verifikasi','Disetujui'],
+     render:r=>statusBadge(r.status)+((r.aktif && r.aktif!=='Aktif')?' <span class="bdg off">Non Aktif</span>':'')},
     {key:'review',label:'Tinjau Ulang', width:'130px', align:'center', filter:false, sortValue:r=>r.review?1:0,
      render:r=>r.review?`<span class="bdg warn">Perlu ditinjau</span>`:'<span class="text-ink3">—</span>'}
   ],
-  actions:[{k:'open'},'view','copy','delete'],
+  /* rev-6 poin 15 (P-51): ikon Edit (pensil) yang sama dengan menu Material
+     ditambahkan di sini. Sebelumnya menu ini hanya punya ikon buka-halaman,
+     sehingga mengubah keterangan kepala data (nama, satuan, status, dan
+     sejenisnya) harus lewat halaman detail. Kini keduanya tersedia:
+     pensil untuk kepala data lewat jendela, ikon buka-halaman untuk isinya. */
+  actions:[{k:'open'},'view','edit','copy','delete'],
   onAction:(k,r)=>{
     if (k==='open'){ location.href='unit-price-analysis-detail.html?kode='+r.kode; return true; }
     if (k==='copy'){
@@ -55,8 +62,26 @@ renderTable('#zone', {
     }
     return false;
   },
-  onRowClick:r=>location.href='unit-price-analysis-detail.html?kode='+r.kode,
-  form:(d)=>[
+  /* rev-6 poin 5: klik pada baris tabel TIDAK lagi membuka halaman detail.
+     Perpindahan ke detail hanya melalui tombol aksi Buka Halaman Detail,
+     agar baris tetap dapat dipilih, disalin, dan disaring tanpa berpindah halaman. */
+  /* rev-6 poin 15 (P-51): Margin disimpan sebagai pecahan (0,15) tetapi diisi
+     dalam persen (15). Tanpa penyesuaian saat form dibuka, setiap kali Edit
+     disimpan nilainya menyusut seratus kali lipat — masalah yang sama dengan
+     kolom Waste pada menu Material. */
+  /* rev-6 poin 17 (P-53): kolom Status pada form Add/Edit tidak lagi dropdown.
+     Kendalanya: status di sini bukan Aktif/Non Aktif melainkan status ALUR yang
+     punya lebih dari dua keadaan, sehingga tidak muat pada switch. Pemecahannya
+     dipisah menjadi dua hal yang memang berbeda:
+       - Status (switch Aktif / Non Aktif), sama persis dengan menu Brand —
+         menentukan data ini masih dipakai atau tidak.
+       - Status Alur, ditampilkan sebagai badge yang TIDAK dapat diketik.
+         Nilainya hanya berubah lewat tombol Submit, Approve, dan Reject pada
+         halaman detail (lihat P-52), jadi memang tidak boleh dipilih tangan. */
+  form:(d, isNew)=>{
+    if (!isNew && d.margin != null && d.margin !== '' && Number(d.margin) <= 1)
+      d.margin = Math.round(Number(d.margin) * 10000) / 100;
+    return [
     {key:'kode', label:'Kode Pekerjaan', required:true},
     {key:'sat',  label:'Satuan', type:'select', required:true, options:['Unit','M2','M1']},
     {key:'nama', label:'Uraian Pekerjaan', required:true, full:true},
@@ -64,13 +89,23 @@ renderTable('#zone', {
     {key:'bd',   label:'Breakdown Rujukan', type:'select', options:()=>[''].concat(DB.BREAKDOWN.map(b=>b.kode))},
     {key:'margin',label:'Margin (%)', type:'number', disabled: !can('unit-price-analysis','approve'),
      help: can('unit-price-analysis','approve') ? 'Role SPV ke atas dapat mengubah margin.' : 'Margin terkunci untuk role '+curRole()+'.'},
-    {key:'status',label:'Status', type:'select', options:['Draft','Menunggu Verifikasi','Disetujui']}
-  ],
-  formDefaults:()=>({status:'Draft', sat:'Unit', margin:15, hsp:0, review:false}),
+    {key:'status',label:'Status Alur', type:'static', cls:'stat-lock',
+     help:'Berubah melalui tombol Submit, Approve, dan Reject pada halaman detail AHS.'},
+    {key:'aktif', label:'Status', type:'switch', def:'Aktif',
+     help:'Non Aktif membuat AHS ini tidak dapat dipilih pada BOQ baru.'}
+  ];},
+  formDefaults:()=>({status:'Draft', aktif:'Aktif', sat:'Unit', margin:15, hsp:0, review:false}),
   beforeSave:o=>{ o.margin = Number(o.margin)/100 || 0.15; },
-  detail:r=>detailHTML([['Kode',r.kode],['Uraian',r.nama],['Kelompok',(DB.WORKGROUP.find(w=>w.kode===r.grp)||{}).nama],
-    ['Satuan',r.sat],['Breakdown Rujukan',r.bd||'-'],['Margin',pct(r.margin)],['Harga Satuan Pekerjaan',money(r.hsp)],
-    ['Status',statusBadge(r.status)],['Tinjau Ulang', r.review?'Ya — harga komponen berubah':'Tidak']])
+  /* rev-6 poin 8: jendela Detail memakai keterangan yang sama dengan
+     Unit Price List, agar estimator melihat susunan harga yang identik
+     dari menu mana pun ia membukanya. */
+  detailSub:r=>r.kode+' — '+r.nama+' · per 1 '+r.sat,
+  detailSize:'xl',
+  detail:r=>ahsDetailHTML(r),
+  detailFooter:r=>[
+    {label:'Buka Rincian AHS', cls:'btn-primary', ic:'openpage',
+     onClick:()=>location.href='unit-price-analysis-detail.html?kode='+r.kode}
+  ]
 });
 
 </script>

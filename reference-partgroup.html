@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kelompok Breakdown &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme')||'light';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="reference-partgroup" data-title="Kelompok Breakdown">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"><div id="rolenote"></div><div id="zone-tbl"></div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+$('#rolenote').innerHTML = roleNote('Menu ini adalah sumber isi <b>dropdown Kelompok</b> pada layar Material Breakdown &rarr; Add Row, sekaligus judul pengelompokan baris pada tabel detail breakdown. Sumber data: Data_Sample.xlsx sheet <b>BD-WD (240x60x320)</b> &mdash; baris pengelompokan Body/Lambung, Pintu, Ambalan &amp; Rak, Pelapis, Aksesoris, Laci. Tabel basis data: <b>TB_M_BREAKDOWN_GROUP</b>.');
+
+renderTable('#zone-tbl', {
+  key:'reference-partgroup', perm:'reference', entity:'Kelompok Breakdown', idKey:'kode',
+  title:'Kelompok Breakdown',
+  desc:'Pengelompokan item barang pada Material Breakdown. Kolom Urutan menentukan susunan baris pada layar breakdown.',
+  rows:()=>DB.PARTGROUP,
+  toolbar:[TB.add('Kelompok Breakdown'), TB.upload('reference-partgroup'), TB.download()],
+  columns:[
+    {key:'kode', label:'Code', width:'100px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+    {key:'nama', label:'Nama Kelompok', width:'240px', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+    {key:'desc', label:'Contoh Item Barang'},
+    {key:'urut', label:'Urutan', width:'96px', align:'right', filter:false, render:r=>`<span class="num">${r.urut}</span>`},
+    {key:'status', label:'Status', width:'118px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
+  ],
+  form:[
+    {key:'kode', label:'Kode', required:true, help:'Format BG-x.'},
+    {key:'nama', label:'Nama Kelompok', required:true, help:'Ditampilkan sebagai judul pengelompokan pada tabel breakdown.'},
+    {key:'desc', label:'Contoh Item Barang', type:'textarea', full:true},
+    {key:'urut', label:'Urutan Tampil', type:'number', required:true},
+    {key:'status', label:'Status', type:'switch'}
+  ],
+  formDefaults:()=>({status:'Aktif', urut:DB.PARTGROUP.length+1, kode:'BG-'+String.fromCharCode(65+DB.PARTGROUP.length)}),
+  actions:['view','edit','delete'],
+  detail:r=>detailHTML([['Kode',r.kode],['Nama Kelompok',r.nama],['Contoh Item Barang',r.desc],
+    ['Urutan Tampil',r.urut],['Status',statusBadge(r.status)],
+    ['Dipakai pada Baris Breakdown', Object.values(DB.BREAKDOWN_D).flat().filter(x=>x.grp===r.nama).length + ' baris']])
+});
+
+</script>
+</body>
+</html>

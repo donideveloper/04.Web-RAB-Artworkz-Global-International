@@ -25,24 +25,56 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
 
-const S = ['Draft','Sent','Won','Lost'];
-$('#stats').innerHTML = S.map(s=>{
-  const rows = DB.PROJECT.filter(p=>p.status===s);
-  const val = rows.reduce((a,b)=>a+b.nilai,0);
-  const col = {Draft:'off',Sent:'info',Won:'ok',Lost:'danger'}[s];
-  return `<div class="col-6 col-lg-3"><div class="stat">
-    <div class="lbl"><span class="ic" style="background:var(--${col==='off'?'line-soft':col+'-soft'});color:var(--${col==='off'?'ink-2':col})">${icon('folder',15)}</span> ${s}</div>
-    <div class="val">${rows.length} <span class="text-ink3" style="font-size:13px">project</span></div>
-    <div class="sub">${rp(val)}</div></div></div>`;
-}).join('');
+const S = PRJ_STATUS;   /* rev-4: Draft, Submit, Succeed, Failed */
 
-renderTable('#zone-tbl', {
+/* ------------------------------------------------------------
+   rev-6 poin 7 — kartu ringkasan dan kolom Status
+   Tiga perbaikan sekaligus:
+   1. Angka dihitung dari nilai status yang sudah diseragamkan
+      (normPrjStatus), sehingga data lama bertulisan Sent/Won/Lost tetap
+      terbaca sebagai Submit/Succeed/Failed dan tidak lagi bernilai 0.
+   2. Kartu digambar ulang setiap tabel berubah (melalui cfg.onDraw), jadi
+      setelah aksi Submit/Succeed/Failed angkanya ikut berubah.
+   3. Kartu dapat diklik untuk menyaring kolom Status pada tabel, sehingga
+      isi kartu dan isi tabel selalu dapat dicocokkan langsung.
+   ------------------------------------------------------------ */
+const COL = {Draft:'off', Submit:'info', Succeed:'ok', Failed:'danger'};
+function drawStats(){
+  const aktif = (TSTATE.project && TSTATE.project.filters || {}).status || '';
+  $('#stats').innerHTML = S.map(s=>{
+    const rows = DB.PROJECT.filter(p=>normPrjStatus(p.status)===s);
+    const val  = rows.reduce((a,b)=>a+(Number(b.nilai)||0),0);
+    const col  = COL[s];
+    return `<div class="col-6 col-lg-3"><div class="stat" data-st="${s}" role="button" tabindex="0"
+      title="Klik untuk menyaring tabel pada status ${s}"
+      style="cursor:pointer;${aktif===s?'border-color:var(--primary);box-shadow:var(--ring)':''}">
+      <div class="lbl"><span class="ic" style="background:var(--${col==='off'?'line-soft':col+'-soft'});color:var(--${col==='off'?'ink-2':col})">${icon('folder',15)}</span> ${s}</div>
+      <div class="val">${rows.length} <span class="text-ink3" style="font-size:13px">project</span></div>
+      <div class="sub">${rp(val)}</div></div></div>`;
+  }).join('') + `<div class="col-12"><p class="text-ink3 mb-0" style="font-size:12px">
+      Angka pada kartu dihitung dari kolom <b>Status</b> tabel di bawah (seluruh ${DB.PROJECT.length} project,
+      tidak terpengaruh filter). Klik kartu untuk menyaring tabel; klik ulang untuk menampilkan seluruh status.</p></div>`;
+
+  $$('#stats [data-st]').forEach(c=>{
+    const go = ()=>{
+      const st = TSTATE.project;
+      st.filters.status = (st.filters.status===c.dataset.st) ? '' : c.dataset.st;
+      st.page = 1;
+      drawTable(cfgPRJ);
+    };
+    c.onclick = go;
+    c.onkeydown = e => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } };
+  });
+}
+
+const cfgPRJ = {
   key:'project', perm:'project', entity:'Project', idKey:'no', formSize:'lg',
-  title:'Project & Quotation', desc:'Satu project dikerjakan dalam satu halaman bertab: Information, Work Items, Recap, Quotation, dan Revision History.',
+  title:'Project & Quotation', desc:'Satu project dikerjakan dalam satu halaman bertab: Information, Work Items, Recap, Quotation, dan Revision History. Submit serta penetapan Succeed dan Failed dilakukan di halaman detail, setelah nilai penawarannya terlihat.',
   rows:()=>DB.PROJECT,
   toolbar:[TB.add('Project'), TB.download()],
   columns:[
@@ -54,11 +86,44 @@ renderTable('#zone-tbl', {
     {key:'tgl', label:'Tgl Penawaran', width:'140px', filter:false, render:r=>dmy(r.tgl)},
     {key:'nilai', label:'Nilai Penawaran', width:'175px', align:'right', filter:false, render:r=>money(r.nilai)},
     {key:'est', label:'Estimator', width:'150px', filter:'select', options:()=>[...new Set(DB.PROJECT.map(p=>p.est))]},
-    {key:'status', label:'Status', width:'118px', filter:'select', options:S, render:r=>statusBadge(r.status)}
+    {key:'status', label:'Status', width:'118px', filter:'select', options:S,
+     filterValue:r=>normPrjStatus(r.status), sortValue:r=>normPrjStatus(r.status),
+     render:r=>statusBadge(normPrjStatus(r.status))+((r.aktif && r.aktif!=='Aktif')?' <span class="bdg off">Non Aktif</span>':'')}
   ],
-  actions:[{k:'open'},'view','copy','print','delete'],
-  onAction:(k,r)=>{ if(k==='open'){ location.href='project-detail.html?no='+r.no; return true; } return false; },
-  onRowClick:r=>location.href='project-detail.html?no='+r.no,
+  /* rev-4 poin 17: aksi Print dihapus dari tabel — pencetakan dilakukan di halaman
+     detail project (tab Quotation) agar dokumen selalu berasal dari revisi yang dibuka.
+     rev-4 poin 19: aksi perubahan status mengikuti kewenangan role. */
+  /* rev-6 poin 15 (P-51): ikon Edit (pensil) yang sama dengan menu Material
+     ditambahkan di sini. Sebelumnya menu ini hanya punya ikon buka-halaman,
+     sehingga mengubah keterangan kepala data (nama, satuan, status, dan
+     sejenisnya) harus lewat halaman detail. Kini keduanya tersedia:
+     pensil untuk kepala data lewat jendela, ikon buka-halaman untuk isinya. */
+  actions:r=>{
+    /* rev-6 poin 16 (P-52): penetapan Succeed dan Failed — padanan Approve dan
+       Reject pada alur penawaran — dikeluarkan dari kolom Actions. Keduanya
+       tetap tersedia pada kepala halaman detail project, tempat nilai
+       penawaran dan rekapitulasinya terlihat sebelum diputuskan.
+       rev-6 poin 22 (P-58): Submit ikut dikeluarkan dengan alasan yang sama —
+       tombolnya sudah ada pada kepala halaman detail. Kolom Actions kini murni
+       berisi navigasi dan pengelolaan baris. */
+    return [{k:'open'},'view','edit','copy','delete'];
+  },
+  onAction:(k,r)=>{
+    if (k==='open'){ location.href='project-detail.html?no='+r.no; return true; }
+    return false;
+  },
+  /* rev-6 poin 5: klik pada baris tabel TIDAK lagi membuka halaman detail.
+     Perpindahan ke detail hanya melalui tombol aksi Buka Halaman Detail,
+     agar baris tetap dapat dipilih, disalin, dan disaring tanpa berpindah halaman. */
+  /* rev-6 poin 17 (P-53): kolom Status pada form Add/Edit tidak lagi dropdown.
+     Kendalanya: status di sini bukan Aktif/Non Aktif melainkan status ALUR yang
+     punya lebih dari dua keadaan, sehingga tidak muat pada switch. Pemecahannya
+     dipisah menjadi dua hal yang memang berbeda:
+       - Status (switch Aktif / Non Aktif), sama persis dengan menu Brand —
+         menentukan data ini masih dipakai atau tidak.
+       - Status Alur, ditampilkan sebagai badge yang TIDAK dapat diketik.
+         Nilainya hanya berubah lewat tombol Submit, Succeed, dan Failed pada
+         halaman detail (lihat P-52 dan P-58), jadi tidak boleh dipilih tangan. */
   form:[
     {key:'no', label:'Nomor Project', required:true, disabled:true},
     {key:'client', label:'Client', type:'select', required:true, options:()=>DB.CLIENT.filter(c=>c.status==='Aktif').map(c=>({v:c.kode,l:c.nama}))},
@@ -69,12 +134,25 @@ renderTable('#zone-tbl', {
     {key:'valid', label:'Masa Berlaku (hari)', type:'number', disabled:!can('project','discount'),
      help: can('project','discount')?'':'Parameter terkunci untuk role '+curRole()+'.'},
     {key:'est', label:'Estimator Penanggung Jawab', type:'select', required:true, options:()=>DB.USERS.filter(u=>u.roles.includes('EST')).map(u=>u.nama)},
-    {key:'status', label:'Status', type:'select', options:S}
+    {key:'status', label:'Status Alur', type:'static', cls:'stat-lock',
+     help:'Berubah melalui tombol Submit, Succeed, dan Failed pada halaman detail project.'},
+    {key:'aktif', label:'Status', type:'switch', def:'Aktif',
+     help:'Non Aktif menyembunyikan project dari daftar kerja tanpa menghapus datanya.'}
   ],
-  formDefaults:()=>({no:'PRJ-2026-'+String(DB.PROJECT.length+1).padStart(3,'0'), status:'Draft', tgl:today(), valid:30, nilai:0}),
+  formDefaults:()=>({no:'PRJ-2026-'+String(DB.PROJECT.length+1).padStart(3,'0'), status:'Draft', aktif:'Aktif', tgl:today(), valid:30, nilai:0}),
   detail:r=>detailHTML([['Nomor',r.no],['Nama Project',r.nama],['Client',(DB.CLIENT.find(c=>c.kode===r.client)||{}).nama],
-    ['Lokasi',r.lokasi],['Tanggal Penawaran',dmy(r.tgl)],['Nilai Penawaran',money(r.nilai)],['Estimator',r.est],['Status',statusBadge(r.status)]])
-});
+    ['Lokasi',r.lokasi],['Tanggal Penawaran',dmy(r.tgl)],['Nilai Penawaran',money(r.nilai)],['Estimator',r.est],
+    ['Status',statusBadge(r.status)],['Diubah Oleh',r.oleh_status||'-'],['Keterangan Status',r.ket_status||'-']])
+};
+cfgPRJ.onDraw = drawStats;   /* rev-6 poin 7 */
+
+/* filter awal bila dibuka dari kartu Dashboard: project.html?status=Submit */
+const qs = new URLSearchParams(location.search).get('status');
+if (qs && S.includes(qs)){
+  TSTATE.project = TSTATE.project || {sort:null, dir:1, filters:{}, page:1, size:10};
+  TSTATE.project.filters.status = qs;
+}
+renderTable('#zone-tbl', cfgPRJ);
 
 </script>
 </body>

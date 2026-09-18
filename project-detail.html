@@ -25,6 +25,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -56,12 +57,60 @@ $('#head').innerHTML = `
       <p>${esc(client.nama||'-')} &middot; ${esc(prj.lokasi)} &middot; Estimator ${esc(prj.est)} &middot; ${statusBadge(prj.status)}</p>
     </div>
     <div class="acts">
-      <button class="btn btn-ghost" onclick="toast('Data project diekspor ke Excel.')">${icon('download',15)} Download Excel</button>
-      ${can('project','print')?`<button class="btn btn-ghost" onclick="go('quotation')">${icon('print',15)} Print Quotation</button>`:''}
-      ${RO?'':`<button class="btn btn-primary" id="btn-save">${icon('save',15)} Save Project</button>`}
+      <button class="btn btn-ghost" id="btn-xls">${icon('download',15)} Download Excel</button>
+      ${prjCanSet(prj,'Submit') ?`<button class="btn btn-primary" id="st-Submit">${icon('send',15)} Submit</button>`:''}
+      ${prjCanSet(prj,'Succeed')?`<button class="btn btn-primary" id="st-Succeed">${icon('check',15)} Succeed</button>`:''}
+      ${prjCanSet(prj,'Failed') ?`<button class="btn btn-danger" id="st-Failed">${icon('x',15)} Failed</button>`:''}
+      ${prjCanSet(prj,'Draft')  ?`<button class="btn btn-ghost" id="st-Draft">${icon('back',15)} Kembalikan ke Draft</button>`:''}
+      ${RO?'':`<button class="btn btn-ghost" id="btn-save">${icon('save',15)} Save Project</button>`}
     </div>
   </div>
 </div>`;
+
+/* rev-5 poin 6 (P-25): tombol Print Quotation pada kepala halaman dihapus.
+   Pencetakan hanya dari tab Quotation, tepat di atas dokumen yang akan diunduh,
+   sehingga tidak ada lagi tombol yang perlu berpindah tab. */
+/* rev-5 poin 7 (P-26): pilihan Lampiran pada jendela Print Quotation.
+   Lampiran Spesifikasi disusun sistem dari item penawaran -> AHS blok B -> bahan;
+   Lampiran Gambar Kerja diambil dari berkas berjenis "Gambar Kerja" pada kartu
+   Lampiran (tab Information). Pilihan yang belum memiliki sumber dibuat tidak aktif. */
+const adaGambar = () => DB.ATTACH.filter(a=>a.jenis==='Gambar Kerja').length;
+function lampOptions(){
+  const o = [{v:'Lampiran Spesifikasi', l:'Lampiran Spesifikasi'}];
+  o.push({v:'Lampiran Gambar Kerja', l:'Lampiran Gambar Kerja'+(adaGambar()?' ('+adaGambar()+' berkas)':' — belum ada berkas')});
+  return o;
+}
+function lampHelp(){
+  return adaGambar()
+    ? 'Urutan berkas: dokumen penawaran, Lampiran A Spesifikasi, Lampiran B Gambar Kerja. Penomoran halaman berlanjut.'
+    : 'Belum ada gambar kerja pada project ini. Unggah berkas berjenis Gambar Kerja pada tab Information.';
+}
+function openPrintOptions(){
+  openModal({
+    title:'Print Quotation', sub: prj.no+' — Revisi '+((DB.REVISI[DB.REVISI.length-1]||{}).rev||'R0')+' · '+prj.status, size:'md',
+    body:`<div class="alert-box ${prj.status==='Draft'?'warn':'info'}">${icon(prj.status==='Draft'?'alert':'info',16)}<div>${
+        prj.status==='Draft'
+          ? 'Penawaran masih berstatus <b>Draft</b>. Dokumen yang dicetak diberi penanda diagonal DRAFT pada setiap halaman.'
+          : 'Dokumen dicetak dari revisi yang sedang dibuka dan otomatis tersimpan pada Arsip Dokumen.'}</div></div>` +
+      formHTML([
+        {key:'fmt', label:'Format Keluaran', type:'select', options:['PDF','Excel (XLSX)'],
+         help:'Pencetakan ke printer dilakukan dari berkas PDF yang sudah diunduh.'},
+        {key:'rinci', label:'Tingkat Kerincian', type:'select', options:['Rinci (per item)','Ringkas (per kelompok)']},
+        {key:'pajak', label:'Penyajian Harga', type:'select', options:['Termasuk PPN','Belum Termasuk PPN']},
+        {key:'opsi', label:'Penyertaan', type:'checks', full:true, options:['Syarat dan Ketentuan']},
+        {key:'lamp', label:'Lampiran', type:'checks', full:true, options:lampOptions(),
+         help:lampHelp()}
+      ], {opsi:['Syarat dan Ketentuan'], rinci:'Rinci (per item)'}),
+    footer:[{label:'Cancel'},{label:'Download', cls:'btn-primary', ic:'download', onClick:(c,el)=>{
+      const fmt  = ($('[name="fmt"]',el)||{}).value || 'PDF';
+      const lamp = $$('[name="lamp"]:checked',el).map(i=>i.value);
+      logAudit('Project','Download',prj.no,'Unduh quotation '+((DB.REVISI[DB.REVISI.length-1]||{}).rev||'R0')+
+        ' ('+fmt+')'+(lamp.length?' — lampiran: '+lamp.join(', '):' — tanpa lampiran'));
+      saveDB(); c();
+      toast('Dokumen quotation '+fmt+(lamp.length?' beserta '+lamp.length+' lampiran':'')+' berhasil dibentuk dan disimpan pada Arsip Dokumen.');
+    }}]
+  });
+}
 
 const TABS = [['info','Information'],['items','Work Items'],['recap','Recap'],['quotation','Quotation'],['rev','Revision History']];
 let cur = location.hash.replace('#','') || 'info';
@@ -100,7 +149,7 @@ function tabInfo(){
         ], {margin:P.margin*100, jasa:P.jasa*100, ppn:P.ppn*100, bulat:P.bulat, tgl_harga:P.tgl_harga, valid:P.valid})}</div></div>
     </div>
     <div class="col-12 col-xl-5">
-      <div class="card"><div class="card-tb"><div><h2>Lampiran</h2><p>Berkas disimpan pada Google Drive perusahaan.</p></div>
+      <div class="card"><div class="card-tb"><div><h2>Lampiran</h2><p>Berkas disimpan pada Google Drive perusahaan. Berkas berjenis <b>Gambar Kerja</b> dapat disertakan saat mengunduh quotation.</p></div>
         <div class="acts">${RO?'':`<button class="btn btn-ghost btn-sm" id="btn-upl">${icon('upload',14)} Upload</button>`}</div></div>
         <div class="card-body">
           <input type="file" id="dz-file" multiple hidden>
@@ -108,11 +157,13 @@ function tabInfo(){
             <span class="form-hint">PDF, JPG, PNG, ZIP &middot; maksimal 25 MB per berkas</span>
             <div class="file-pick" id="dz-name" hidden></div></div>
           ${DB.ATTACH.map(a=>`<div class="kv"><span>${icon('paperclip',14)} <b>${esc(a.nama)}</b>
+            <span class="bdg ${a.jenis==='Gambar Kerja'?'blue':'off'}" style="margin-left:6px">${esc(a.jenis||'Lainnya')}</span>
             <span class="cell-sub">${esc(a.ukuran)} &middot; ${esc(a.oleh)} &middot; ${esc(a.waktu)} &middot; ${esc(a.drive)}</span></span>
             <button class="icon-btn" onclick="toast('Berkas diunduh dari Google Drive.','info')">${icon('download',15)}</button></div>`).join('')}
         </div></div>
 
-      <div class="card"><div class="card-tb"><div><h2>Riwayat Status</h2></div></div>
+      <div class="card"><div class="card-tb"><div><h2>Riwayat Status</h2>
+        <p>Draft &amp; Submit: Estimator. Succeed &amp; Failed: Manager Operasional atau Direktur.</p></div></div>
         <div class="card-body"><div class="timeline">
           <div class="ti"><p>Project dibuat</p><span>12/09/2026 10:15 &middot; Dewi Lestari</span></div>
           <div class="ti"><p>BOQ selesai disusun (19 baris)</p><span>14/09/2026 16:40 &middot; Dewi Lestari</span></div>
@@ -141,10 +192,12 @@ function tabItems(){
     <div class="col-12 col-lg-9">
       <div class="card">
         <div class="card-tb"><div><h2>Bill of Quantity</h2>
-          <p>Baris abu = judul kelompok, baris terang = subtotal, baris miring = keterangan spesifikasi (ikut tercetak, tidak dihitung).</p></div>
+          <p>Baris abu = judul kelompok, baris terang = subtotal, baris miring = keterangan spesifikasi (ikut tercetak, tidak dihitung).
+             Judul kelompok diambil dari master <b>Work Group</b>; nomor romawinya dihitung otomatis.</p></div>
           <div class="acts">
             ${can('project','import')?`<button class="btn btn-ghost" onclick="location.href='upload-preview.html?m=boq'">${icon('upload',15)} Upload BOQ</button>`:''}
-            ${RO?'':`<button class="btn btn-primary" id="btn-item">${icon('plus',15)} Add Item</button>`}</div></div>
+            ${RO?'':`<button class="btn btn-ghost" id="btn-grp">${icon('layers',15)} Add Work Group</button>
+            <button class="btn btn-primary" id="btn-item">${icon('plus',15)} Add Item</button>`}</div></div>
         <div class="tbl-wrap"><table class="dt">
           <thead><tr><th style="width:62px">No</th><th>Uraian Pekerjaan</th><th style="width:78px">Sat.</th>
             <th class="right" style="width:96px">Volume</th><th class="right" style="width:150px">Harga Satuan</th>
@@ -177,6 +230,59 @@ function tabItems(){
   </div>`;
 }
 function lastGrp(i){ for(let j=i;j>=0;j--) if(DB.BOQ[j].t==='grp') return DB.BOQ[j].uraian; return ''; }
+
+/* ============================================================
+   rev-6 poin 19 (P-55) — kelompok pekerjaan BOQ berasal dari master
+   ------------------------------------------------------------
+   Sebelumnya judul kelompok pada BOQ hanya berupa teks bebas yang sudah
+   terlanjur ada di data, dan dropdown Add Item membacanya dari situ. Akibatnya
+   kelompok baru tidak dapat dibuat sama sekali, isinya berbeda-beda tiap
+   project, dan satu salah ketik ikut menjadi pilihan permanen.
+   Kini judul kelompok dibentuk dari master Work Group (TB_M_WORKGROUP) —
+   master yang sama yang sudah dipakai menu Unit Price Analysis.
+   ============================================================ */
+const ROMAWI = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+const boqGroups = () => DB.BOQ.filter(r=>r.t==='grp');
+
+/* Nomor romawi selalu dihitung ulang mengikuti urutan sebenarnya, sehingga
+   penambahan atau penghapusan kelompok tidak meninggalkan nomor yang bolong. */
+function renumberBOQ(){
+  let g = 0;
+  DB.BOQ.forEach(r=>{ if (r.t==='grp'){ r.no = ROMAWI[g] || String(g+1); g++; } });
+}
+
+/* Kelompok master yang BELUM dipakai pada BOQ ini */
+function workGroupTersedia(){
+  const dipakai = boqGroups().map(g=>String(g.uraian).toUpperCase());
+  return DB.WORKGROUP.filter(w=>w.status==='Aktif' && !dipakai.includes(w.nama.toUpperCase()));
+}
+
+function addWorkGroup(){
+  const sisa = workGroupTersedia();
+  if (!sisa.length){
+    toast('Seluruh Work Group yang aktif sudah dipakai pada BOQ ini. Tambahkan dahulu di menu Reference > Work Group.','warn');
+    return;
+  }
+  const f = [{key:'wg', label:'Work Group', type:'select', required:true, full:true,
+              options:()=>sisa.map(w=>({v:w.kode, l:w.nama})),
+              help:'Daftar ini dikelola di menu Master Data > Reference > Work Group. Kelompok yang sudah dipakai pada BOQ ini tidak ditampilkan lagi.'}];
+  openModal({
+    title:'Add Work Group', sub:'Menambahkan judul kelompok pekerjaan beserta baris subtotalnya.', size:'md',
+    body:`<div class="alert-box info">${icon('info',16)}<div>Judul kelompok pada BOQ diambil dari master
+      <b>Work Group</b>, master yang sama yang dipakai menu Unit Price Analysis. Dengan begitu rekapitulasi
+      per kelompok dapat dijumlahkan lintas project.</div></div>` + formHTML(f, {}),
+    footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(c,el)=>{
+      const o = readForm(el, f);
+      const w = DB.WORKGROUP.find(x=>x.kode===o.wg);
+      if (!w) return;
+      DB.BOQ.push({t:'grp', no:'', uraian:w.nama.toUpperCase(), wg:w.kode});
+      DB.BOQ.push({t:'sub', no:'', uraian:'Subtotal '+w.nama});
+      renumberBOQ(); saveDB(); c();
+      toast('Kelompok '+w.nama+' ditambahkan pada BOQ.');
+      render();
+    }}]
+  });
+}
 
 /* ---------- TAB RECAP ---------- */
 function tabRecap(){
@@ -244,7 +350,7 @@ function tabQuot(){
       <div class="card"><div class="card-tb"><div><h2>Pratinjau Dokumen Quotation</h2>
         <p>Dokumen sebelum finalisasi diberi penanda diagonal DRAFT pada setiap halaman.</p></div>
         <div class="acts">
-          <button class="btn btn-ghost" id="btn-opt">${icon('settings',15)} Print Options</button>
+          <button class="btn btn-ghost" id="btn-opt">${icon('print',15)} Print Quotation</button>
           <button class="btn btn-primary" id="btn-final">${icon('check',15)} Finalize</button></div></div>
         <div class="card-body">
           <div class="docpaper watermark">
@@ -388,16 +494,7 @@ function wire(){
       <div class="alert-box warn">${icon('alert',16)}<div><b>Peringatan</b><br>3 material pada AHS WD.2 berumur lebih dari 90 hari.</div></div>`,
     footer:[{label:'Cancel'},{label:'Finalize', cls:'btn-primary', ic:'check', disabled:true}]
   });
-  if ($('#btn-opt')) $('#btn-opt').onclick = ()=>openModal({
-    title:'Print Options', size:'md',
-    body: formHTML([
-      {key:'fmt', label:'Format Keluaran', type:'select', options:['PDF','Excel (XLSX)']},
-      {key:'rinci', label:'Tingkat Kerincian', type:'select', options:['Ringkas (per kelompok)','Rinci (per item)']},
-      {key:'opsi', label:'Penyertaan', type:'checks', full:true, options:['Syarat dan Ketentuan','Lampiran Spesifikasi','Gambar Kerja']},
-      {key:'pajak', label:'Penyajian Harga', type:'select', full:true, options:['Termasuk PPN','Belum Termasuk PPN']}
-    ], {opsi:['Syarat dan Ketentuan'], rinci:'Rinci (per item)'}),
-    footer:[{label:'Cancel'},{label:'Download', cls:'btn-primary', ic:'download', onClick:c=>{c();toast('Dokumen quotation berhasil dibentuk.');}}]
-  });
+  if ($('#btn-opt')) $('#btn-opt').onclick = openPrintOptions;
   if ($('#btn-rev')) $('#btn-rev').onclick = ()=>openModal({
     title:'Create Revision', size:'md',
     body: formHTML([
@@ -426,10 +523,18 @@ function wire(){
       </tbody></table></div>`,
     footer:[{label:'Close'}]
   });
+  if ($('#btn-grp'))  $('#btn-grp').onclick  = addWorkGroup;
   if ($('#btn-item')) $('#btn-item').onclick = ()=>openModal({
     title:'Add Item Pekerjaan', size:'lg',
     body: formHTML([
-      {key:'grp', label:'Kelompok Pekerjaan', type:'select', required:true, options:()=>DB.BOQ.filter(r=>r.t==='grp').map(g=>g.uraian)},
+      /* rev-6 poin 19 (P-55): isi dropdown diambil dari master Work Group,
+         bukan lagi dari baris judul yang kebetulan sudah ada pada BOQ ini.
+         Hanya kelompok yang SUDAH menjadi judul pada BOQ ini yang boleh
+         dipilih — untuk kelompok baru, pakai tombol "Add Work Group" lebih
+         dahulu. Label memakai nama menu sumbernya (P-57). */
+      {key:'grp', label:'Work Group', type:'select', required:true,
+       options:()=>boqGroups().map(g=>({v:g.uraian, l:g.no+'. '+g.uraian})),
+       help:'Daftar kelompok dikelola di menu Master Data > Reference > Work Group.'},
       {key:'kode', label:'Kode AHS', type:'select', required:true, options:()=>DB.AHS.map(a=>({v:a.kode,l:a.kode+' — '+a.nama}))},
       {key:'uraian', label:'Uraian Pekerjaan', required:true, full:true},
       {key:'sat', label:'Satuan', type:'select', options:['Unit','M2','M1']},
@@ -463,6 +568,11 @@ function wire(){
   }
 }
 if ($('#btn-save')) $('#btn-save').onclick = ()=>{ prj.nilai = finalVal(); saveDB(); toast('Project '+prj.no+' berhasil disimpan.'); };
+if ($('#btn-xls'))  $('#btn-xls').onclick  = ()=>toast('Data project diekspor ke Excel.');
+['Submit','Succeed','Failed','Draft'].forEach(t=>{
+  const b = $('#st-'+t);
+  if (b) b.onclick = ()=>prjSetStatus(prj, t, ()=>location.reload());
+});
 render();
 window.addEventListener('hashchange', ()=>{ cur = location.hash.replace('#','')||'info'; render(); });
 

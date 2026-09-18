@@ -341,3 +341,131 @@ tr.note-row td{color:var(--ink-2);font-style:italic;font-size:12.5px}
 .sum-line .dot.ok{background:var(--ok)}
 .sum-line .dot.warn{background:var(--warn)}
 .sum-line .dot.danger{background:var(--danger)}
+
+/* ===== rev-4: tombol informasi modul (i) & isi modal informasi ===== */
+/* rev-5 poin 1 (P-20): ikon informasi memakai warna netral abu muda agar tidak
+   terbaca sebagai tombol aksi utama. Kontras lambang terhadap latar tetap >= 4,5:1. */
+.info-btn{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;
+  margin-left:7px;vertical-align:middle;padding:0;border-radius:50%;border:1px solid #DEE2E6;
+  background:#F1F3F5;color:#868E96;cursor:pointer;transition:.15s}
+.info-btn:hover{background:#E9ECEF;color:#495057;border-color:#CED4DA}
+[data-theme="dark"] .info-btn{background:#2A2F36;border-color:#3A424C;color:#9AA4B0}
+[data-theme="dark"] .info-btn:hover{background:#343B44;color:#D7DDE4}
+
+/* rev-5 poin 10 (P-29): kendali switch untuk status Aktif / Non Aktif */
+.switch-wrap{display:flex;align-items:center;gap:10px;min-height:38px}
+.switch-wrap .form-check{padding-left:2.6em}
+.switch-wrap .form-check-input{width:2.15em;height:1.15em;margin-left:-2.6em;cursor:pointer}
+.switch-lb{font-size:13px;font-weight:600;color:var(--ink-2)}
+.info-btn svg{width:13px;height:13px}
+.info-sec{margin-top:16px}
+.info-sec:first-of-type{margin-top:4px}
+.info-sec h6{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink-2);margin:0 0 8px;padding-bottom:7px;border-bottom:1px solid var(--line-soft)}
+.info-sec h6 svg{color:var(--primary)}
+.info-sec .dl-detail{margin:0}
+.info-sec .dl-detail dt{white-space:normal}
+@media (max-width:640px){ .info-sec .dl-detail dt{font-weight:700} }
+
+/* ============================================================
+   rev-6 poin 4 — Searchable dropdown (SSEL)
+   Seluruh dropdown pada aplikasi memakai kendali ini: elemen <select>
+   asli tetap ada di DOM (tersembunyi) agar pembacaan nilai, validasi,
+   dan pemuatan ulang pilihan secara program tidak berubah.
+   ============================================================ */
+.ssel{position:relative;display:block}
+.ssel>select.ssel-src{position:absolute;width:1px;height:1px;opacity:0;padding:0;margin:0;border:0;pointer-events:none}
+.ssel-btn{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  border:1px solid var(--line);border-radius:var(--r-input);padding:8px 12px;font-size:13.5px;
+  background:var(--field);color:var(--ink);min-height:38px;transition:.15s}
+.ssel-btn:hover:not(:disabled){border-color:var(--ink-3)}
+.ssel-btn:focus-visible,.ssel.open .ssel-btn{outline:none;border-color:var(--primary);box-shadow:var(--ring)}
+.ssel-btn:disabled{background:var(--line-soft);color:var(--ink-2);cursor:not-allowed}
+.ssel-src.is-invalid+.ssel-btn{border-color:var(--danger);box-shadow:0 0 0 3px rgba(215,55,63,.18)}
+.ssel-txt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ssel-txt.ph{color:var(--ink-3)}
+.ssel-btn .ssel-car{flex:none;color:var(--ink-3);transition:transform .15s}
+.ssel.open .ssel-btn .ssel-car{transform:rotate(180deg)}
+/* varian ringkas untuk baris filter tabel */
+.ssel.sm .ssel-btn{min-height:31px;height:31px;padding:0 8px;font-size:12.5px;border-radius:6px}
+
+.ssel-pop{position:fixed;z-index:1085;background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;box-shadow:var(--shadow-pop);overflow:hidden;display:flex;flex-direction:column}
+.ssel-pop[hidden]{display:none}
+.ssel-sb{display:flex;align-items:center;gap:7px;padding:9px 11px;border-bottom:1px solid var(--line-soft);color:var(--ink-3)}
+.ssel-sb input{flex:1;border:0;outline:none;background:transparent;color:var(--ink);font-size:13.5px;font-family:var(--font)}
+.ssel-list{max-height:238px;overflow-y:auto;padding:5px}
+.ssel-opt{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:0;
+  border-radius:7px;padding:7px 10px;font-size:13.5px;color:var(--ink);line-height:1.35}
+.ssel-opt:hover,.ssel-opt.hi{background:var(--line-soft)}
+.ssel-opt.on{background:var(--primary-soft);color:var(--primary);font-weight:600}
+.ssel-opt .ssel-ck{flex:none;opacity:0}
+.ssel-opt.on .ssel-ck{opacity:1}
+.ssel-opt mark{background:transparent;color:var(--primary);font-weight:700;padding:0}
+.ssel-none{padding:16px 12px;text-align:center;font-size:12.5px;color:var(--ink-3)}
+.ssel-foot{padding:6px 11px;border-top:1px solid var(--line-soft);font-size:11.5px;color:var(--ink-3)}
+
+/* ============================================================
+   rev-6 poin 6 — Matrix Akses Menu per Role
+   ============================================================ */
+.mx-wrap{overflow:auto}
+table.mx{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+table.mx th,table.mx td{border-bottom:1px solid var(--line-soft);padding:9px 10px;vertical-align:middle}
+table.mx thead th{background:var(--thead);color:var(--ink-2);font-weight:600;font-size:11.5px;
+  text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:2;text-align:center;white-space:nowrap}
+table.mx thead th.mx-menu{text-align:left;left:0;z-index:3;background:var(--thead)}
+table.mx td.mx-menu{position:sticky;left:0;background:var(--panel);z-index:1;min-width:210px}
+table.mx tbody tr:hover td{background:var(--hover)}
+table.mx tbody tr:hover td.mx-menu{background:var(--hover)}
+table.mx td.mx-cell{text-align:center;min-width:112px}
+table.mx tr.mx-grp td{background:var(--line-soft);font-weight:700;color:var(--ink-2);
+  font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+.mx-dot{display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:7px}
+.mx-dot.full{background:var(--ok-soft);color:var(--ok)}
+.mx-dot.part{background:var(--warn-soft);color:var(--warn)}
+.mx-dot.none{background:var(--line-soft);color:var(--ink-3)}
+.mx-f{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.02em;border-radius:5px;
+  padding:1px 5px;margin:1px;background:var(--primary-soft);color:var(--primary)}
+.mx-f.off{background:var(--line-soft);color:var(--ink-3);font-weight:500}
+.mx-lgd{display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:12.5px;color:var(--ink-2)}
+.mx-lgd span.i{display:inline-flex;align-items:center;gap:6px}
+
+/* ============================================================
+   rev-6 poin 8 — Jendela Detail harga satuan pekerjaan (AHS)
+   ============================================================ */
+.ahs-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
+  background:var(--thead);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:14px}
+.ahs-big{font-size:26px;font-weight:700;color:var(--ink);line-height:1.2;margin:2px 0}
+.ahs-kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:10px 18px;margin-bottom:16px}
+.ahs-kv>div{border-left:2px solid var(--line);padding-left:11px}
+.ahs-kv span{display:block;font-size:11.5px;color:var(--ink-3);margin-bottom:1px}
+.ahs-kv b{font-size:13.5px;color:var(--ink)}
+.ahs-sec{margin-bottom:16px}
+.ahs-sec h6,.ahs-blk h6{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2);margin-bottom:9px}
+.cost-bar{display:flex;height:13px;border-radius:7px;overflow:hidden;background:var(--line-soft)}
+.cost-bar span{display:block;height:100%}
+.cost-lgd{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:9px;font-size:12px;color:var(--ink-2)}
+.cost-lgd i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:baseline}
+.ahs-blk{margin-bottom:14px}
+table.dt.sm th{padding:7px 10px;font-size:11px}
+table.dt.sm td{padding:7px 10px;font-size:12.5px}
+table.dt.sm tr.sub-total td{background:var(--line-soft);font-weight:700;color:var(--ink)}
+.ahs-tot{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px}
+.ahs-tot>div{display:flex;justify-content:space-between;gap:16px;padding:9px 16px;font-size:13px;
+  border-bottom:1px solid var(--line-soft);color:var(--ink-2)}
+.ahs-tot>div:last-child{border-bottom:0}
+.ahs-tot>div b{color:var(--ink);font-weight:700}
+.ahs-tot>div.f{background:var(--primary-soft)}
+.ahs-tot>div.f span,.ahs-tot>div.f b{color:var(--primary);font-weight:700;font-size:14px}
+
+/* rev-6 poin 13 (P-49) — satu baris rapat untuk segmen pembentuk kode */
+.seg-row{padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--thead)}
+.seg-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;align-items:start}
+.seg-grid .form-hint{font-size:11.5px}
+@media(max-width:640px){ .seg-grid{grid-template-columns:1fr} }
+
+/* rev-6 poin 17 (P-53) — status alur yang hanya dibaca, tidak dapat diketik */
+.stat-lock{display:flex;align-items:center;gap:8px;min-height:38px;padding:6px 12px;
+  border:1px dashed var(--line);border-radius:var(--r-input);background:var(--line-soft)}

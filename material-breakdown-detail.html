@@ -30,6 +30,7 @@
 <script src="assets/vendor/bootstrap.bundle.min.js"></script>
 <script src="assets/js/rab-data.js"></script>
 <script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-info.js"></script>
 <script src="assets/js/rab-layout.js"></script>
 <script>
 'use strict';
@@ -42,6 +43,9 @@ const matOf = k => DB.MATERIAL.find(m=>m.kode===k) || {nama:k, harga:0, sat:'-'}
 const volOf = r => (r.p && r.l) ? r.p*r.l*r.jml : r.jml;
 const volW  = r => volOf(r)*(1+ (r.waste||0));
 const RO = !can('material-breakdown','edit');
+/* rev-4: baris hanya dapat disunting saat status Draft atau Ditolak.
+   Menunggu Verifikasi dan Disetujui terkunci (lihat FSD — Alur Status Breakdown). */
+const LOCK = RO || !(bd.status==='Draft' || bd.status==='Ditolak');
 
 $('#head').innerHTML = `
 <div class="card"><div class="card-tb">
@@ -52,8 +56,12 @@ $('#head').innerHTML = `
   </div>
   <div class="acts">
     ${can('material-breakdown','export')?`<button class="btn btn-ghost" id="btn-exp">${icon('download',15)} Download Excel</button>`:''}
-    ${RO?'':`<button class="btn btn-ghost" id="btn-add">${icon('plus',15)} Add Row</button>
-    <button class="btn btn-primary" id="btn-save">${icon('save',15)} Save Breakdown</button>`}
+    ${(!RO && (bd.status==='Draft'||bd.status==='Ditolak'))?`<button class="btn btn-ghost" id="btn-add">${icon('plus',15)} Add Row</button>
+    <button class="btn btn-ghost" id="btn-save">${icon('save',15)} Save Breakdown</button>
+    <button class="btn btn-primary" id="btn-submit">${icon('send',15)} Submit for Verification</button>`:''}
+    ${(bd.status==='Menunggu Verifikasi' && can('material-breakdown','approve'))?
+      `<button class="btn btn-danger" id="btn-reject">${icon('x',15)} Reject</button>
+       <button class="btn btn-primary" id="btn-approve">${icon('check',15)} Approve</button>`:''}
   </div>
 </div></div>`;
 
@@ -62,26 +70,26 @@ function draw(){
   $('#detail').innerHTML = `
   <div class="card">
     <div class="card-tb"><div><h2>Detail Material</h2>
-      <p>${RO?'Mode hanya baca.':'Sel bertanda kuning dapat disunting langsung. Kolom Volume dihitung otomatis.'}</p></div></div>
+      <p>${LOCK?('Terkunci — status '+esc(bd.status)+'. Penyuntingan hanya terbuka saat status Draft atau Ditolak.'):'Sel bertanda kuning dapat disunting langsung. Kolom Volume dihitung otomatis. Kolom Item Barang adalah nama bagian fisik benda kerja, contoh lambung samping, daun pintu, backing belakang.'}</p></div></div>
     <div class="tbl-wrap"><table class="dt">
       <thead><tr>
-        <th style="width:48px">No</th><th style="width:200px">Material</th><th>Bagian Benda Kerja</th>
+        <th style="width:48px">No</th><th style="width:200px">Material</th><th title="Nama bagian fisik benda kerja — pada Excel kolom DESCRIPTION">Item Barang</th>
         <th class="right" style="width:84px">P (m)</th><th class="right" style="width:84px">L (m)</th>
         <th class="right" style="width:74px">Jml</th><th class="right" style="width:96px">Volume</th>
         <th style="width:72px">Satuan</th><th class="right" style="width:80px">Waste</th>
-        <th class="right" style="width:112px">Vol + Waste</th>${RO?'':'<th style="width:52px"></th>'}
+        <th class="right" style="width:112px">Vol + Waste</th>${LOCK?'':'<th style="width:52px"></th>'}
       </tr></thead>
       <tbody>
       ${grps.map(g=>{
         const items = rows.filter(r=>r.grp===g);
-        return `<tr class="grp"><td colspan="${RO?10:11}">${esc(g)}</td></tr>` + items.map(r=>{
+        return `<tr class="grp"><td colspan="${LOCK?10:11}">${esc(g)}</td></tr>` + items.map(r=>{
           const i = rows.indexOf(r), m = matOf(r.mat);
-          const ed = (k,v,dec) => RO ? `<span class="num">${nf(v)}</span>`
+          const ed = (k,v,dec) => LOCK ? `<span class="num">${nf(v)}</span>`
             : `<span class="editable num" contenteditable data-i="${i}" data-k="${k}">${v}</span>`;
           return `<tr>
             <td class="text-ink3">${items.indexOf(r)+1}</td>
             <td><span class="mono" style="font-size:11px">${esc(r.mat)}</span><span class="cell-sub">${esc(m.nama)}</span></td>
-            <td>${RO?esc(r.bagian):`<span class="editable" contenteditable data-i="${i}" data-k="bagian">${esc(r.bagian)}</span>`}</td>
+            <td>${LOCK?esc(r.bagian):`<span class="editable" contenteditable data-i="${i}" data-k="bagian">${esc(r.bagian)}</span>`}</td>
             <td class="right">${ed('p', r.p)}</td>
             <td class="right">${ed('l', r.l)}</td>
             <td class="right">${ed('jml', r.jml)}</td>
@@ -89,7 +97,7 @@ function draw(){
             <td>${esc(r.sat)}</td>
             <td class="right num">${(r.waste*100).toFixed(0)}%</td>
             <td class="right num cell-main">${nf(volW(r))}</td>
-            ${RO?'':`<td><button class="icon-btn danger" data-del="${i}" title="Hapus baris">${icon('trash',15)}</button></td>`}
+            ${LOCK?'':`<td><button class="icon-btn danger" data-del="${i}" title="Hapus baris">${icon('trash',15)}</button></td>`}
           </tr>`;
         }).join('');
       }).join('')}
@@ -101,13 +109,13 @@ function draw(){
     el.onblur = () => {
       const r = rows[+el.dataset.i], k = el.dataset.k;
       r[k] = k==='bagian' ? el.textContent.trim() : (parseFloat(el.textContent.replace(',','.'))||0);
-      draw(); drawRecap(); saveDB();
+      draw(); drawRecap(); wireRecap(); saveDB();
     };
     el.onkeydown = e => { if (e.key==='Enter'){ e.preventDefault(); el.blur(); } };
   });
   $$('[data-del]').forEach(b=>b.onclick=()=>confirmModal({
     title:'Confirm Delete', text:'Hapus baris material ini dari breakdown?',
-    onOk:()=>{ rows.splice(+b.dataset.del,1); bd.baris=rows.length; saveDB(); draw(); drawRecap(); toast('Baris berhasil dihapus.'); }
+    onOk:()=>{ rows.splice(+b.dataset.del,1); bd.baris=rows.length; saveDB(); draw(); drawRecap(); wireRecap(); toast('Baris berhasil dihapus.'); }
   }));
 }
 
@@ -128,18 +136,68 @@ function drawRecap(){
       <div class="kv total"><span>Total Kebutuhan Material</span><b class="num">${rp(total)}</b></div>
     </div>
     <div class="card-foot"><span>${list.length} jenis material</span>
-      <button class="btn btn-ghost btn-sm" onclick="toast('Rekapitulasi dikirim ke blok B pada AHS.','info')">${icon('send',14)} Load to AHS</button></div>
+      <button class="btn btn-ghost btn-sm" id="btn-toahs">${icon('send',14)} Load to Unit Price Analysis (AHS)</button></div>
   </div>`;
 }
 draw(); drawRecap();
+wireRecap();
+
+/* rev-4 — mengirim rekapitulasi ini menjadi blok B (Bahan) pada AHS.
+   Menu tujuan: Price Analysis > Unit Price Analysis (AHS). */
+function wireRecap(){
+  const b = $('#btn-toahs'); if (!b) return;
+  b.onclick = () => {
+    if (bd.status!=='Disetujui'){
+      toast('Hanya breakdown berstatus Disetujui yang dapat ditarik ke AHS. Status saat ini: '+bd.status+'.','warn');
+      return;
+    }
+    const cand = DB.AHS.filter(a=>a.status!=='Disetujui' || a.bd===bd.kode);
+    openModal({
+      title:'Load to Unit Price Analysis (AHS)', sub:bd.kode+' — '+bd.nama, size:'md',
+      body:`<div class="alert-box info">${icon('info',16)}<div>Rekapitulasi kebutuhan material pada panel kanan akan mengisi
+          <b>blok B (Bahan)</b> pada AHS tujuan. Koefisien tiap material diambil dari kolom <b>Volume + Waste</b>,
+          sehingga tidak perlu diketik ulang. Blok A (Upah) dan C (Biaya Lain) tidak terpengaruh.</div></div>` +
+        formHTML([
+          {key:'ahs', label:'AHS Tujuan', type:'select', required:true, full:true,
+           options:()=>cand.map(a=>({v:a.kode, l:a.kode+' — '+a.nama}))},
+          {key:'mode', label:'Perlakuan Blok B', type:'select', full:true,
+           options:['Ganti seluruh isi blok B','Tambahkan ke blok B yang ada']}
+        ], {ahs:(cand.find(a=>a.bd===bd.kode)||cand[0]||{}).kode}),
+      footer:[{label:'Cancel'},{label:'Load', cls:'btn-primary', ic:'send', onClick:(c,el)=>{
+        const o = readForm(el,[{key:'ahs'},{key:'mode'}]);
+        const target = DB.AHS.find(a=>a.kode===o.ahs);
+        if (!target){ toast('AHS tujuan belum dipilih.','err'); return; }
+        const agg = {};
+        rows.forEach(r=>{ agg[r.mat] = (agg[r.mat]||0) + volW(r); });
+        const isi = Object.entries(agg).map(([k,v])=>{
+          const m = matOf(k);
+          return {kode:k, nama:m.nama, sat:m.sat, koef:Number(v.toFixed(4)), harga:m.harga};
+        });
+        DB.AHS_D[target.kode] = DB.AHS_D[target.kode] || {A:[],B:[],C:[]};
+        DB.AHS_D[target.kode].B = o.mode==='Tambahkan ke blok B yang ada'
+          ? (DB.AHS_D[target.kode].B||[]).concat(isi) : isi;
+        target.bd = bd.kode; target.review = true;
+        logAudit('Unit Price Analysis','Update',target.kode,'Blok B diisi dari breakdown '+bd.kode+' ('+isi.length+' baris)');
+        saveDB(); c();
+        toast(isi.length+' baris material dikirim ke blok B pada AHS '+target.kode+'.');
+        setTimeout(()=>location.href='unit-price-analysis-detail.html?kode='+encodeURIComponent(target.kode), 900);
+      }}]
+    });
+  };
+}
 
 if ($('#btn-add')) $('#btn-add').onclick = () => openModal({
   title:'Add Row', sub:'Tambah baris material pada breakdown.', size:'lg',
   body: formHTML([
-    {key:'grp', label:'Kelompok', type:'select', required:true, options:[...new Set(rows.map(r=>r.grp))].concat(['F. Lain-lain'])},
+    /* rev-6 poin 21 (P-57): label dropdown memakai nama menu sumbernya, supaya
+       pengguna langsung tahu daftar ini dikelola di menu yang mana. */
+    {key:'grp', label:'Kelompok Breakdown', type:'select', required:true,
+     options:()=>DB.PARTGROUP.filter(g=>g.status==='Aktif').sort((a,b)=>a.urut-b.urut).map(g=>({v:g.nama, l:g.nama})),
+     help:'Sumber: menu Master Data > Reference > Kelompok Breakdown (tabel TB_M_BREAKDOWN_GROUP).'},
     {key:'mat', label:'Material', type:'select', required:true,
      options:()=>DB.MATERIAL.filter(m=>m.sts_harga!=='Belum Ada Harga').map(m=>({v:m.kode,l:m.kode+' — '+m.nama+' ('+rp(m.harga)+')'}))},
-    {key:'bagian', label:'Bagian Benda Kerja', required:true, full:true},
+    {key:'bagian', label:'Item Barang', required:true, full:true,
+     help:'Nama bagian fisik dari benda kerja, contoh: lambung samping kiri & kanan, daun pintu swing, backing belakang. Pada Excel kolom ini bernama DESCRIPTION.'},
     {key:'p', label:'Panjang (m)', type:'number', step:'0.01'},
     {key:'l', label:'Lebar (m)', type:'number', step:'0.01'},
     {key:'jml', label:'Jumlah', type:'number', required:true},
@@ -151,11 +209,14 @@ if ($('#btn-add')) $('#btn-add').onclick = () => openModal({
       {key:'jml',type:'number'},{key:'sat'},{key:'waste',type:'number'}]);
     if (!o.bagian || !o.jml){ toast('Bagian benda kerja dan jumlah wajib diisi.','err'); return; }
     o.waste = Number(o.waste)/100; rows.push(o); bd.baris = rows.length;
-    saveDB(); draw(); drawRecap(); c(); toast('Baris material berhasil ditambahkan.');
+    saveDB(); draw(); drawRecap(); wireRecap(); c(); toast('Baris material berhasil ditambahkan.');
   }}]
 });
 if ($('#btn-save')) $('#btn-save').onclick = () => { bd.baris=rows.length; saveDB(); toast('Breakdown '+bd.kode+' berhasil disimpan.'); };
 if ($('#btn-exp'))  $('#btn-exp').onclick  = () => toast('Breakdown diekspor ke '+bd.kode+'.xlsx.');
+if ($('#btn-submit'))  $('#btn-submit').onclick  = () => bdSubmit(bd, ()=>location.reload());
+if ($('#btn-approve')) $('#btn-approve').onclick = () => bdApprove(bd, true, ()=>location.reload());
+if ($('#btn-reject'))  $('#btn-reject').onclick  = () => bdApprove(bd, false, ()=>location.reload());
 
 </script>
 </body>
