@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Work Group &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="reference-workgroup" data-title="Work Group">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+renderTable('#zone', {
+  key:'reference-workgroup', perm:'reference', entity:'Work Group', idKey:'kode',
+  title:'Work Group', desc:'Kelompok pekerjaan yang menjadi pengelompokan BOQ dan rekapitulasi.',
+  rows:()=>DB.WORKGROUP,
+  toolbar:[TB.add('Work Group'), TB.upload('reference-workgroup'), TB.download()],
+  columns:[
+    {key:'kode', label:'Code', width:'100px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+    {key:'nama', label:'Kelompok Pekerjaan', width:'240px', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+    {key:'desc', label:'Cakupan'},
+    {key:'status', label:'Status', width:'118px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
+  ],
+  form:[
+    {key:'kode', label:'Kode', required:true},
+    {key:'nama', label:'Kelompok Pekerjaan', required:true},
+    {key:'desc', label:'Cakupan', type:'textarea', full:true},
+    {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+  ],
+  formDefaults:()=>({status:'Aktif', kode:nextCode('WG-', DB.WORKGROUP, 'kode', 2)}),
+  actions:['view','edit','delete'],
+  detail:r=>detailHTML([['Kode',r.kode],['Kelompok Pekerjaan',r.nama],['Cakupan',r.desc],['Status',statusBadge(r.status)]])
+});
+
+</script>
+</body>
+</html>

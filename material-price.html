@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material & Price &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="material-price" data-title="Material & Price">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"><div id="rolenote"></div><div id="zone-tbl"></div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+$('#rolenote').innerHTML = can('material-price','edit')
+  ? roleNote('Role <b>'+curRole()+'</b>: dapat menambah material dan mencatat harga baru. Kolom <b>Status Harga</b> menandai harga Terkini, Kedaluwarsa (lebih dari 90 hari), atau Belum Ada Harga.')
+  : roleNote('Role <b>'+curRole()+'</b>: halaman ini hanya baca. Tombol Add, Edit, dan Add New Price disembunyikan sesuai FSD &mdash; Perbedaan Tampilan Antar Role.');
+
+const SEG = {
+  kategori: ()=>DB.CATEGORY.map(c=>({v:c.kode, l:c.kode+' — '+c.nama})),
+  type:     d=>DB.TYPE.filter(t=>!d.kategori||t.kategori===d.kategori).map(t=>({v:t.kode.split('.')[1]||'01', l:(t.kode.split('.')[1]||'01')+' — '+t.nama})),
+  spec:     ()=>['00','01','02','03','04','05','06','07','08'].map(v=>({v, l:v})),
+  brand:    ()=>DB.BRAND.map(b=>({v:b.kode, l:b.kode+' — '+b.nama})),
+  varian:   ()=>['00','01','02'].map(v=>({v, l:v}))
+};
+const buildCode = d => [d.kategori||'---', d.type||'--', d.spec||'--', d.brand||'--', d.varian||'--'].join('.');
+
+const matForm = [
+  {key:'kategori', label:'Category', type:'select', required:true, options:SEG.kategori},
+  {key:'type',     label:'Type',     type:'select', required:true, options:SEG.type},
+  {key:'spec',     label:'Specification', type:'select', required:true, options:SEG.spec},
+  {key:'brand',    label:'Brand',    type:'select', required:true, options:SEG.brand},
+  {key:'varian',   label:'Varian',   type:'select', required:true, options:SEG.varian},
+  {key:'kode',     label:'Pratinjau Kode Material', type:'static', full:true},
+  {key:'nama',  label:'Nama Material', required:true, full:true, help:'Terbentuk otomatis dari pilihan di atas, masih dapat disunting.'},
+  {key:'sat',   label:'Satuan Pakai', type:'select', required:true, options:()=>DB.UOM.map(u=>u.kode)},
+  {key:'sat_beli', label:'Satuan Beli', type:'select', options:()=>DB.UOM.map(u=>u.kode)},
+  {key:'konversi', label:'Faktor Konversi', type:'number', step:'0.0001', help:'1 satuan beli = n satuan pakai.'},
+  {key:'waste', label:'Waste (%)', type:'number', step:'0.01', rule:v=>(v<0||v>50)?'Waste hanya boleh 0 sampai 50 persen.':''},
+  {key:'supplier', label:'Supplier Utama', type:'select', options:()=>DB.SUPPLIER.map(s=>({v:s.kode,l:s.kode+' — '+s.nama}))},
+  {key:'harga', label:'Harga Awal (Rp)', type:'number', required:true},
+  {key:'upd',   label:'Berlaku Sejak', type:'date', required:true},
+  {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+];
+
+const cfg = {
+  key:'material', perm:'material-price', entity:'Material', idKey:'kode', formSize:'lg',
+  title:'Material & Price', desc:'Daftar material beserta harga berlaku. Kode terbentuk dari lima segmen bertingkat.',
+  rows:()=>DB.MATERIAL,
+  toolbar:[TB.add('Material'), TB.upload('material'), TB.download()],
+  columns:[
+    {key:'kode', label:'Kode Material', width:'186px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+    {key:'nama', label:'Nama Material', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+    {key:'sat',  label:'Satuan', width:'86px', filter:'select', options:()=>[...new Set(DB.MATERIAL.map(m=>m.sat))]},
+    {key:'harga',label:'Harga Berlaku', width:'140px', align:'right', filter:false, render:r=>money(r.harga)},
+    {key:'waste',label:'Waste', width:'82px', align:'right', filter:false, render:r=>`<span class="num">${(r.waste*100).toFixed(0)}%</span>`},
+    {key:'supplier', label:'Supplier', width:'120px', filter:'select', options:()=>DB.SUPPLIER.map(s=>s.kode)},
+    {key:'sts_harga', label:'Status Harga', width:'150px', filter:'select', options:['Terkini','Kedaluwarsa','Belum Ada Harga'], render:r=>statusBadge(r.sts_harga)},
+    {key:'status', label:'Status', width:'112px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
+  ],
+  actions:r=>['view','edit',{k:'price'},{k:'history'},'delete'],
+  form: matForm,
+  formDefaults:()=>({status:'Aktif', waste:5, konversi:1, upd:today(), spec:'00', varian:'00'}),
+  beforeSave:o=>{ o.waste = Number(o.waste)/100; o.sts_harga = o.harga? 'Terkini':'Belum Ada Harga'; },
+  onFormShown:(el,data)=>{
+    const sync = () => {
+      const d = readForm(el, matForm);
+      $('[data-static="kode"]', el).textContent = buildCode(d);
+      const nm = $('[name="nama"]', el);
+      if (!nm.value){
+        const c = (DB.CATEGORY.find(x=>x.kode===d.kategori)||{}).nama || '';
+        const b = (DB.BRAND.find(x=>x.kode===d.brand)||{}).nama || '';
+        nm.value = (c + ' ' + b).trim();
+      }
+    };
+    ['kategori','type','spec','brand','varian'].forEach(k=>{ const i=$(`[name="${k}"]`,el); if(i) i.onchange=sync; });
+    sync();
+  },
+  detail:r=>detailHTML([
+    ['Kode Material',`<span class="mono">${esc(r.kode)}</span>`],['Nama',r.nama],['Satuan Pakai',r.sat],
+    ['Harga Berlaku',money(r.harga)],['Waste',(r.waste*100).toFixed(0)+'%'],
+    ['Supplier',(DB.SUPPLIER.find(s=>s.kode===r.supplier)||{}).nama||'-'],
+    ['Status Harga',statusBadge(r.sts_harga)],['Terakhir Diperbarui',dmy(r.upd)],['Status',statusBadge(r.status)]
+  ]),
+  onAction:(k,r)=>{
+    if (k!=='price') return false;
+    openModal({
+      title:'Add New Price', sub:r.kode+' — '+r.nama, size:'md',
+      body:`
+        <div class="alert-box info">${icon('info',16)}<div>Harga yang sedang berlaku: <b>${rp(r.harga)}</b> (sejak ${dmy(r.upd)}).</div></div>
+        ${formHTML([
+          {key:'harga_baru', label:'Harga Baru (Rp)', type:'number', required:true},
+          {key:'mulai', label:'Berlaku Mulai', type:'date', required:true},
+          {key:'selisih', label:'Selisih terhadap Harga Berlaku', type:'static', cls:'code-preview', full:true},
+          {key:'catatan', label:'Catatan Perubahan', type:'textarea', full:true}
+        ], {mulai: today(), selisih:'—'})}`,
+      footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(close,el)=>{
+        const v = Number($('[name="harga_baru"]',el).value);
+        if (!v){ toast('Harga baru wajib diisi.','err'); return; }
+        r.harga = v; r.sts_harga='Terkini'; r.upd = $('[name="mulai"]',el).value || today();
+        saveDB(); drawTable(cfg); close(); toast('Harga material berhasil disimpan.');
+      }}],
+      onShown:el=>{
+        const inp = $('[name="harga_baru"]',el), out = $('[data-static="selisih"]',el);
+        inp.oninput = () => {
+          const v = Number(inp.value)||0, d = v - r.harga;
+          out.textContent = v ? `${d>=0?'+':''}${nf(d)}  (${((d/r.harga)*100).toFixed(2)}%)` : '—';
+          out.style.color = d>=0 ? 'var(--danger)' : 'var(--ok)';
+        };
+      }
+    });
+    return true;
+  }
+};
+renderTable('#zone-tbl', cfg);
+
+</script>
+</body>
+</html>

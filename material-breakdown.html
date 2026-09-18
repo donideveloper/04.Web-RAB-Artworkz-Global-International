@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material Breakdown &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="material-breakdown" data-title="Material Breakdown">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+renderTable('#zone', {
+  key:'breakdown', perm:'material-breakdown', entity:'Breakdown', idKey:'kode',
+  title:'Material Breakdown', desc:'Rincian kebutuhan material per benda kerja. Varian finishing dibentuk melalui tombol Duplicate.',
+  rows:()=>DB.BREAKDOWN,
+  toolbar:[TB.add('Breakdown'), TB.upload('breakdown'), TB.download()],
+  columns:[
+    {key:'kode', label:'Kode', width:'128px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+    {key:'nama', label:'Nama Item Pekerjaan', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+    {key:'dim',  label:'Dimensi Acuan', width:'160px'},
+    {key:'sat',  label:'Satuan', width:'92px', filter:'select', options:['Unit','M2','M1']},
+    {key:'finishing', label:'Jenis Finishing', width:'180px', filter:'select', options:()=>DB.FINISHING.map(f=>f.nama)},
+    {key:'baris', label:'Jml Baris', width:'104px', align:'right', filter:false, render:r=>`<span class="num">${r.baris}</span>`},
+    {key:'status',label:'Status', width:'180px', filter:'select', options:['Draft','Menunggu Verifikasi','Disetujui','Nonaktif'], render:r=>statusBadge(r.status)}
+  ],
+  actions:[{k:'open'},'view','copy','delete'],
+  onAction:(k,r)=>{
+    if (k==='open'){ location.href='material-breakdown-detail.html?kode='+r.kode; return true; }
+    if (k==='copy'){
+      openModal({title:'Duplicate Breakdown', sub:r.kode+' — '+r.nama, size:'md',
+        body: formHTML([
+          {key:'kode', label:'Kode Breakdown Baru', required:true},
+          {key:'finishing', label:'Jenis Finishing', type:'select', required:true, options:()=>DB.FINISHING.map(f=>f.nama)},
+          {key:'nama', label:'Nama Item Pekerjaan', required:true, full:true}
+        ], {kode:r.kode.replace(/\d+$/, m=>String(+m+1).padStart(3,'0')), nama:r.nama, finishing:r.finishing}),
+        footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'copy', onClick:(c,el)=>{
+          const o = readForm(el,[{key:'kode'},{key:'nama'},{key:'finishing'}]);
+          DB.BREAKDOWN.unshift({...r, ...o, status:'Draft'});
+          DB.BREAKDOWN_D[o.kode] = (DB.BREAKDOWN_D[r.kode]||[]).map(x=>({...x}));
+          saveDB(); c(); location.reload();
+        }}]});
+      return true;
+    }
+    return false;
+  },
+  onRowClick:r=>location.href='material-breakdown-detail.html?kode='+r.kode,
+  form:[
+    {key:'kode', label:'Kode Breakdown', required:true},
+    {key:'sat',  label:'Satuan', type:'select', required:true, options:['Unit','M2','M1']},
+    {key:'nama', label:'Nama Item Pekerjaan', required:true, full:true},
+    {key:'dim',  label:'Dimensi Acuan', ph:'contoh 240 x 60 x 320 cm'},
+    {key:'finishing', label:'Jenis Finishing', type:'select', required:true, options:()=>DB.FINISHING.map(f=>f.nama)},
+    {key:'status',label:'Status', type:'select', options:['Draft','Menunggu Verifikasi','Disetujui','Nonaktif']}
+  ],
+  formDefaults:()=>({status:'Draft', sat:'Unit', baris:0}),
+  detail:r=>detailHTML([['Kode',r.kode],['Nama',r.nama],['Dimensi',r.dim],['Satuan',r.sat],
+    ['Finishing',r.finishing],['Jumlah Baris Material',r.baris],['Status',statusBadge(r.status)]])
+});
+
+</script>
+</body>
+</html>

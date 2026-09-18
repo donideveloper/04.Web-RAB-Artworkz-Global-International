@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit of Measure &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="reference-uom" data-title="Unit of Measure">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+renderTable('#zone', {
+  key:'reference-uom', perm:'reference', entity:'Unit of Measure', idKey:'kode',
+  title:'Unit of Measure', desc:'Satuan pakai dan satuan beli yang dipakai seluruh modul.',
+  rows:()=>DB.UOM,
+  toolbar:[TB.add('Unit of Measure'), TB.upload('reference-uom'), TB.download()],
+  columns:[
+    {key:'kode', label:'Code', width:'96px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+    {key:'nama', label:'Nama Satuan', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+    {key:'jenis', label:'Jenis Satuan', width:'150px', filter:'select', options:['Luas','Panjang','Jumlah','Tenaga','Berat','Volume']},
+    {key:'status', label:'Status', width:'120px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
+  ],
+  form:[
+    {key:'kode', label:'Kode Satuan', required:true},
+    {key:'nama', label:'Nama Satuan', required:true},
+    {key:'jenis', label:'Jenis Satuan', type:'select', options:['Luas','Panjang','Jumlah','Tenaga','Berat','Volume'], required:true},
+    {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+  ],
+  formDefaults:()=>({status:'Aktif'}),
+  actions:['view','edit','delete'],
+  detail:r=>detailHTML([['Kode',r.kode],['Nama Satuan',r.nama],['Jenis',r.jenis],['Status',statusBadge(r.status)]])
+});
+
+</script>
+</body>
+</html>

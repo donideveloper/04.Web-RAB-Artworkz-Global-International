@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="report" data-title="Report">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"><div id="filter"></div><div id="result"></div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+const REPORTS = [
+  ['R1','Rekap Kebutuhan Material per Project','Seluruh material yang dibutuhkan satu project beserta volume, satuan, harga satuan, dan nilai total.','VW_PROJECT_MATERIAL_RECAP'],
+  ['R2','Rekap Kebutuhan Tenaga Kerja','Kebutuhan orang-hari per jenis tenaga kerja beserta nilai upahnya.','VW_PROJECT_LABOR_RECAP'],
+  ['R3','Struktur Biaya Project','Proporsi biaya upah, bahan, biaya lain-lain, dan margin terhadap nilai penawaran.','VW_PROJECT_COST_STRUCTURE'],
+  ['R4','Daftar Harga Satuan Pekerjaan','Seluruh AHS aktif beserta kode, uraian, satuan, dan harga satuan terkini.','VW_AHS_PRICE_LIST'],
+  ['R5','Riwayat Perubahan Harga Material','Perubahan harga pada rentang waktu tertentu beserta persentase perubahannya.','TB_R_MATERIAL_PRICE'],
+  ['R6','Daftar Material Harga Kedaluwarsa','Material yang harganya belum diperbarui melebihi batas waktu.','VW_MATERIAL_ACTIVE_PRICE'],
+  ['R7','Rekap Penawaran per Periode','Daftar penawaran beserta nilai, status, client, dan estimator.','TB_T_PROJECT_H'],
+  ['R8','Analisa Tingkat Keberhasilan','Perbandingan jumlah dan nilai penawaran yang dimenangkan terhadap total penawaran.','TB_T_PROJECT_H'],
+  ['R9','Laporan Aktivitas Pengguna','Rekapitulasi aktivitas pengguna pada rentang waktu tertentu.','TB_R_ACTIVITY_LOG']
+];
+let sel = 'R1';
+
+$('#filter').innerHTML = `
+<div class="card"><div class="card-tb"><div><h2>Report</h2><p>Pilih laporan, tentukan filter, lalu tekan Run Report.</p></div>
+  <div class="acts">
+    <button class="btn btn-ghost" id="btn-x">${icon('download',15)} Export Excel</button>
+    <button class="btn btn-primary" id="btn-run">${icon('search',15)} Run Report</button></div></div>
+  <div class="card-body">
+    <div class="form-grid">
+      <div class="full"><label class="form-label">Jenis Laporan<span class="req">*</span></label>
+        <select class="form-select" id="rep">${REPORTS.map(r=>`<option value="${r[0]}">${r[0]} — ${r[1]}</option>`).join('')}</select>
+        <span class="form-hint" id="rdesc"></span></div>
+      <div><label class="form-label">Periode Dari</label><input type="date" class="form-control" value="2026-07-01"></div>
+      <div><label class="form-label">Periode Sampai</label><input type="date" class="form-control" value="2026-09-18"></div>
+      <div><label class="form-label">Project</label><select class="form-select"><option>Semua Project</option>
+        ${DB.PROJECT.map(p=>`<option>${esc(p.no)} — ${esc(p.nama)}</option>`).join('')}</select></div>
+      <div><label class="form-label">Client</label><select class="form-select"><option>Semua Client</option>
+        ${DB.CLIENT.map(c=>`<option>${esc(c.nama)}</option>`).join('')}</select></div>
+      <div><label class="form-label">Status</label><select class="form-select"><option>Semua Status</option>
+        <option>Draft</option><option>Sent</option><option>Won</option><option>Lost</option></select></div>
+    </div>
+  </div></div>`;
+
+function desc(){ const r = REPORTS.find(x=>x[0]===sel); $('#rdesc').textContent = r[2] + '  ·  Sumber data: ' + r[3]; }
+$('#rep').onchange = e => { sel = e.target.value; desc(); run(); };
+$('#btn-run').onclick = () => { run(); toast('Laporan berhasil dibentuk.'); };
+$('#btn-x').onclick = () => toast('Laporan diekspor ke Excel.');
+desc();
+
+function run(){
+  if (sel==='R1'){
+    const rows = [
+      ['MPL.01.18.00.00','Multiplek 18 mm 122x244','Lbr',188.5,425000],
+      ['MPL.01.09.00.00','Multiplek 9 mm 122x244','Lbr',28.6,245000],
+      ['HPL.01.00.TC.00','HPL Ex. Taco 0,8 mm','Lbr',127.4,295000],
+      ['ACC.01.00.BL.00','Handle Pintu Ex. Blum','unit',52,83270],
+      ['ACC.04.02.DTC.00','Engsel Lurus Ex. DTC','pcs',156,26000],
+      ['GYP.01.09.00.00','Gypsum Board 9 mm','Lbr',364,78000]
+    ];
+    const tot = rows.reduce((s,r)=>s+r[3]*r[4],0);
+    $('#result').innerHTML = card('Rekap Kebutuhan Material &mdash; PRJ-2026-013',
+      `<thead><tr><th style="width:190px">Kode Material</th><th>Nama Material</th><th style="width:80px">Satuan</th>
+        <th class="right" style="width:110px">Volume</th><th class="right" style="width:140px">Harga Satuan</th>
+        <th class="right" style="width:160px">Nilai Total</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td class="mono">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>
+        <td class="right num">${nf(r[3])}</td><td class="right num">${rp(r[4])}</td>
+        <td class="right num cell-main">${rp(r[3]*r[4])}</td></tr>`).join('')}
+        <tr class="sub-total"><td colspan="5">Total Kebutuhan Material</td><td class="right num">${rp(tot)}</td></tr></tbody>`);
+  } else if (sel==='R8'){
+    const byB = {};
+    DB.PROJECT.forEach(p=>{ const c=(DB.CLIENT.find(x=>x.kode===p.client)||{}).jenis||'-';
+      byB[c]=byB[c]||{n:0,w:0,v:0,wv:0}; byB[c].n++; byB[c].v+=p.nilai; if(p.status==='Won'){byB[c].w++;byB[c].wv+=p.nilai;} });
+    $('#result').innerHTML = card('Analisa Tingkat Keberhasilan per Jenis Bangunan',
+      `<thead><tr><th>Jenis Bangunan</th><th class="right">Jml Penawaran</th><th class="right">Jml Won</th>
+        <th class="right">Win Rate</th><th class="right">Nilai Penawaran</th><th class="right">Nilai Won</th></tr></thead>
+      <tbody>${Object.entries(byB).map(([k,v])=>`<tr><td>${k}</td><td class="right num">${v.n}</td>
+        <td class="right num">${v.w}</td><td class="right num">${(v.w/v.n*100).toFixed(0)}%</td>
+        <td class="right num">${rp(v.v)}</td><td class="right num">${rp(v.wv)}</td></tr>`).join('')}</tbody>`);
+  } else if (sel==='R6'){
+    const rows = DB.MATERIAL.filter(m=>m.sts_harga!=='Terkini');
+    $('#result').innerHTML = card('Daftar Material Harga Kedaluwarsa',
+      `<thead><tr><th style="width:190px">Kode</th><th>Nama Material</th><th class="right" style="width:140px">Harga Terakhir</th>
+        <th style="width:150px">Terakhir Update</th><th style="width:170px">Status Harga</th></tr></thead>
+      <tbody>${rows.map(m=>`<tr><td class="mono">${esc(m.kode)}</td><td>${esc(m.nama)}</td>
+        <td class="right num">${rp(m.harga)}</td><td>${dmy(m.upd)||'-'}</td><td>${statusBadge(m.sts_harga)}</td></tr>`).join('')}</tbody>`);
+  } else if (sel==='R7'){
+    $('#result').innerHTML = card('Rekap Penawaran per Periode',
+      `<thead><tr><th style="width:150px">Nomor</th><th>Nama Project</th><th style="width:200px">Client</th>
+        <th style="width:150px">Estimator</th><th class="right" style="width:170px">Nilai</th><th style="width:110px">Status</th></tr></thead>
+      <tbody>${DB.PROJECT.map(p=>`<tr><td class="mono">${esc(p.no)}</td><td>${esc(p.nama)}</td>
+        <td>${esc((DB.CLIENT.find(c=>c.kode===p.client)||{}).nama||'')}</td><td>${esc(p.est)}</td>
+        <td class="right num">${rp(p.nilai)}</td><td>${statusBadge(p.status)}</td></tr>`).join('')}
+        <tr class="sub-total"><td colspan="4">Total</td><td class="right num">${rp(DB.PROJECT.reduce((s,p)=>s+p.nilai,0))}</td><td></td></tr></tbody>`);
+  } else {
+    const r = REPORTS.find(x=>x[0]===sel);
+    $('#result').innerHTML = `<div class="card"><div class="empty">
+      ${icon('chart',26)}<strong class="d-block mt-3">${esc(r[1])}</strong>
+      ${esc(r[2])}<br><code>${esc(r[3])}</code></div></div>`;
+  }
+}
+function card(title, inner){
+  return `<div class="card"><div class="card-tb"><div><h2>${title}</h2>
+    <p>Periode 01/07/2026 &ndash; 18/09/2026</p></div></div>
+    <div class="tbl-wrap"><table class="dt">${inner}</table></div></div>`;
+}
+run();
+
+</script>
+</body>
+</html>

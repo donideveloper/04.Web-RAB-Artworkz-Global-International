@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit Price Analysis (AHS) &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="unit-price-analysis" data-title="Unit Price Analysis (AHS)">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+renderTable('#zone', {
+  key:'ahs', perm:'unit-price-analysis', entity:'AHS', idKey:'kode',
+  title:'Unit Price Analysis (AHS)', desc:'Analisa harga satuan pekerjaan. Kolom Review menyala ketika harga komponen penyusunnya berubah.',
+  rows:()=>DB.AHS,
+  toolbar:[TB.add('AHS'), TB.upload('ahs'), TB.download()],
+  columns:[
+    {key:'kode', label:'Kode Pekerjaan', width:'128px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+    {key:'nama', label:'Uraian Pekerjaan', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+    {key:'grp',  label:'Kelompok', width:'190px', filter:'select', options:()=>DB.WORKGROUP.map(w=>w.kode),
+     render:r=>(DB.WORKGROUP.find(w=>w.kode===r.grp)||{}).nama||r.grp},
+    {key:'sat',  label:'Satuan', width:'92px', filter:'select', options:['Unit','M2','M1']},
+    {key:'hsp',  label:'Harga Satuan Pekerjaan', width:'180px', align:'right', filter:false, render:r=>money(r.hsp)},
+    {key:'status',label:'Status', width:'180px', filter:'select', options:['Draft','Menunggu Verifikasi','Disetujui'], render:r=>statusBadge(r.status)},
+    {key:'review',label:'Tinjau Ulang', width:'130px', align:'center', filter:false, sortValue:r=>r.review?1:0,
+     render:r=>r.review?`<span class="bdg warn">Perlu ditinjau</span>`:'<span class="text-ink3">—</span>'}
+  ],
+  actions:[{k:'open'},'view','copy','delete'],
+  onAction:(k,r)=>{
+    if (k==='open'){ location.href='unit-price-analysis-detail.html?kode='+r.kode; return true; }
+    if (k==='copy'){
+      const nk = prompt('Kode AHS baru (duplikasi dari '+r.kode+'):', r.kode+'.C');
+      if (nk){ DB.AHS.unshift({...r, kode:nk, status:'Draft', review:false}); DB.AHS_D[nk] = JSON.parse(JSON.stringify(DB.AHS_D[r.kode]||DB.AHS_D['WD.2'])); saveDB(); location.reload(); }
+      return true;
+    }
+    return false;
+  },
+  onRowClick:r=>location.href='unit-price-analysis-detail.html?kode='+r.kode,
+  form:(d)=>[
+    {key:'kode', label:'Kode Pekerjaan', required:true},
+    {key:'sat',  label:'Satuan', type:'select', required:true, options:['Unit','M2','M1']},
+    {key:'nama', label:'Uraian Pekerjaan', required:true, full:true},
+    {key:'grp',  label:'Kelompok Pekerjaan', type:'select', required:true, options:()=>DB.WORKGROUP.map(w=>({v:w.kode,l:w.nama}))},
+    {key:'bd',   label:'Breakdown Rujukan', type:'select', options:()=>[''].concat(DB.BREAKDOWN.map(b=>b.kode))},
+    {key:'margin',label:'Margin (%)', type:'number', disabled: !can('unit-price-analysis','approve'),
+     help: can('unit-price-analysis','approve') ? 'Role SPV ke atas dapat mengubah margin.' : 'Margin terkunci untuk role '+curRole()+'.'},
+    {key:'status',label:'Status', type:'select', options:['Draft','Menunggu Verifikasi','Disetujui']}
+  ],
+  formDefaults:()=>({status:'Draft', sat:'Unit', margin:15, hsp:0, review:false}),
+  beforeSave:o=>{ o.margin = Number(o.margin)/100 || 0.15; },
+  detail:r=>detailHTML([['Kode',r.kode],['Uraian',r.nama],['Kelompok',(DB.WORKGROUP.find(w=>w.kode===r.grp)||{}).nama],
+    ['Satuan',r.sat],['Breakdown Rujukan',r.bd||'-'],['Margin',pct(r.margin)],['Harga Satuan Pekerjaan',money(r.hsp)],
+    ['Status',statusBadge(r.status)],['Tinjau Ulang', r.review?'Ya — harga komponen berubah':'Tidak']])
+});
+
+</script>
+</body>
+</html>

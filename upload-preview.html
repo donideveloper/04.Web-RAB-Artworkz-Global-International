@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upload Excel — Preview &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="upload" data-title="Upload Excel — Preview">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"><div id="head"></div><div id="tbl"></div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+const MOD = new URLSearchParams(location.search).get('m') || 'material';
+const META = {
+  material:  {t:'Material', back:'material-price.html',
+    cols:['KODE_MATERIAL','NAMA_MATERIAL','SATUAN_PAKAI','SATUAN_BELI','KONVERSI','WASTE_PERSEN','SUPPLIER','HARGA','TGL_BERLAKU']},
+  labor:     {t:'Labor Rate', back:'labor-rate.html', cols:['KODE_UPAH','NAMA_UPAH','JENIS','SATUAN','TARIF','TGL_BERLAKU']},
+  breakdown: {t:'Material Breakdown', back:'material-breakdown.html',
+    cols:['KODE_BREAKDOWN','KELOMPOK','KODE_MATERIAL','BAGIAN','PANJANG','LEBAR','JUMLAH','SATUAN','WASTE_PERSEN']},
+  ahs:       {t:'AHS', back:'unit-price-analysis.html',
+    cols:['KODE_AHS','BLOK','KODE_KOMPONEN','SATUAN','KOEFISIEN']},
+  boq:       {t:'BOQ (Detail Item Project)', back:'project-detail.html',
+    cols:['NO_URUT','JENIS_BARIS','KODE_AHS','URAIAN','SATUAN','VOLUME']},
+  user:      {t:'User', back:'user.html', cols:['NAMA','USERNAME','EMAIL','JABATAN','ROLE','STATUS']},
+  permission:{t:'Permission', back:'permission.html', cols:['KODE','MENU','MODUL','URL','FITUR','STATUS']},
+  'reference-brand':    {t:'Brand',           back:'reference-brand.html',     cols:['KODE','NAMA_BRAND','STATUS']},
+  'reference-supplier': {t:'Supplier',        back:'reference-supplier.html',  cols:['KODE','NAMA_SUPPLIER','KONTAK','TELEPON','KOTA','STATUS']},
+  'reference-client':   {t:'Client',          back:'reference-client.html',    cols:['KODE','NAMA_CLIENT','PIC','TELEPON','KOTA','STATUS']},
+  'reference-uom':      {t:'Unit of Measure', back:'reference-uom.html',       cols:['KODE','NAMA_SATUAN','KELOMPOK','STATUS']},
+  'reference-finishing':{t:'Finishing',       back:'reference-finishing.html', cols:['KODE','NAMA_FINISHING','KELOMPOK','STATUS']},
+  'reference-building': {t:'Building Type',   back:'reference-building.html',  cols:['KODE','NAMA_TIPE','KETERANGAN','STATUS']},
+  'reference-workgroup':{t:'Work Group',      back:'reference-workgroup.html', cols:['KODE','NAMA_KELOMPOK','URUTAN','STATUS']}
+};
+const M = META[MOD] || META.material;
+
+/* baris contoh hasil validasi — baris Error tampil paling atas */
+let ROWS = [
+  {st:'Error',   msg:'Kode material sudah digunakan. Gunakan kode lain.', d:['MPL.01.18.00.00','Multiplek 18 mm 122x244','Lbr','Lbr','1','8','SUP-002','425000','01/09/2026']},
+  {st:'Error',   msg:'Supplier SUP-099 tidak ditemukan pada master Supplier.', d:['VNR.02.00.00.00','Veneer Jati 0,25 mm','Lbr','Lbr','1','12','SUP-099','210000','01/09/2026']},
+  {st:'Error',   msg:'Waste hanya boleh 0 sampai 50 persen.', d:['ACR.01.05.00.00','Acrylic Clear 5 mm','Lbr','Lbr','1','80','SUP-004','520000','01/09/2026']},
+  {st:'Warning', msg:'Harga lebih tinggi 32% dari harga berlaku. Periksa kembali.', d:['HPL.01.00.TC.00','HPL Ex. Taco 0,8 mm','Lbr','Lbr','1','10','SUP-002','389000','01/09/2026']},
+  {st:'Valid',   msg:'', d:['MPL.01.15.00.00','Multiplek 15 mm 122x244','Lbr','Lbr','1','8','SUP-002','368000','01/09/2026']},
+  {st:'Valid',   msg:'', d:['HPL.02.00.GDS.00','HPL Ex. Goodsense Solid 0,8 mm','Lbr','Lbr','1','10','SUP-002','238000','01/09/2026']},
+  {st:'Valid',   msg:'', d:['ACC.05.00.HF.00','Rak Gantung Ex. Hafele','unit','unit','1','0','SUP-003','412000','01/09/2026']},
+  {st:'Valid',   msg:'', d:['CAT.03.00.00.00','Thinner ND Super','ltr','ltr','1','3','SUP-005','38000','01/09/2026']}
+];
+const nErr = () => ROWS.filter(r=>r.st==='Error').length;
+
+$('#head').innerHTML = `
+<div class="card"><div class="card-tb">
+  <div>
+    <a href="${M.back}" class="btn btn-ghost btn-sm mb-2">${icon('back',14)} Back</a>
+    <h2>Upload ${esc(M.t)} &mdash; Preview</h2>
+    <p>Halaman penuh, bukan modal. Data masuk ke tabel sementara dan baru dipindahkan ke tabel utama setelah Submit.</p>
+  </div>
+  <div class="acts">
+    <button class="btn btn-ghost" id="btn-tpl">${icon('file',15)} Download Template</button>
+    <button class="btn btn-ghost" id="btn-browse">${icon('upload',15)} Browse File</button>
+  </div>
+</div>
+<div class="card-body">
+  <input type="file" id="file" accept=".xlsx,.xls" hidden>
+  <div class="dropzone" id="dz" tabindex="0" role="button"
+       aria-label="Pilih berkas Excel atau seret berkas ke area ini">${icon('upload',24)}
+    <div class="mt-2"><b>Seret berkas .xlsx ke sini</b> atau klik untuk memilih dari komputer</div>
+    <span class="form-hint">Maksimal 5.000 baris per unggahan &middot; hanya format .xlsx</span>
+    <div class="file-pick" id="fname" hidden></div></div>
+</div></div>`;
+
+function draw(){
+  const err = nErr(), warn = ROWS.filter(r=>r.st==='Warning').length, ok = ROWS.filter(r=>r.st==='Valid').length;
+  /* Ringkasan ditulis sebagai label kecil di bawah tabel, tanpa kotak,
+     supaya tidak memakan ruang tampilan tabel preview. */
+  const sumline = `<div class="sum-line">
+      <span>Baris terbaca <b>${ROWS.length}</b></span>
+      <span class="dot ok"></span><span>Valid <b>${ok}</b></span>
+      <span class="dot warn"></span><span>Warning <b>${warn}</b></span>
+      <span class="dot danger"></span><span>Error <b>${err}</b></span>
+    </div>`;
+
+  $('#tbl').innerHTML = `
+  <div class="card">
+    <div class="card-tb"><div><h2>Preview Hasil Validasi</h2>
+      <p>Kolom <b>Status</b> dan <b>Message</b> berada paling kiri. Baris berstatus Error ditampilkan paling atas.</p></div></div>
+    <div class="tbl-wrap"><table class="dt">
+      <thead><tr><th style="width:108px">Status</th><th style="width:300px">Message</th>
+        ${M.cols.map(c=>`<th>${esc(c)}</th>`).join('')}<th style="width:52px"></th></tr></thead>
+      <tbody>${ROWS.map((r,i)=>`<tr style="${r.st==='Error'?'background:var(--danger-soft)':r.st==='Warning'?'background:var(--warn-soft)':''}">
+        <td><span class="bdg ${r.st==='Valid'?'ok':r.st==='Warning'?'warn':'danger'}">${r.st}</span></td>
+        <td style="font-size:12.5px">${esc(r.msg||'—')}</td>
+        ${M.cols.map((c,j)=>`<td>${esc(r.d[j]!==undefined?r.d[j]:'')}</td>`).join('')}
+        <td><button class="icon-btn danger" data-del="${i}" title="Buang baris ini">${icon('trash',15)}</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    ${sumline}
+    <div class="card-foot">
+      <button class="btn btn-maroon" id="btn-err" ${nErr()?'':'disabled'}>${icon('download',15)} Download Error Excel</button>
+      <div class="d-flex gap-2 align-items-center">
+        ${nErr()?`<span style="color:var(--danger)">${icon('alert',15)} Perbaiki ${nErr()} baris Error terlebih dahulu.</span>`:''}
+        <a class="btn btn-ghost" href="${M.back}">Cancel</a>
+        <button class="btn btn-primary" id="btn-sub" ${nErr()?'disabled':''}>${icon('check',15)} Submit</button>
+      </div>
+    </div>
+  </div>`;
+
+  $$('[data-del]').forEach(b=>b.onclick=()=>{ ROWS.splice(+b.dataset.del,1); draw(); toast('Baris dibuang dari tabel sementara.','info'); });
+  $('#btn-err').onclick = () => toast('Berkas Error-'+MOD+'-'+today()+'.xlsx diunduh. Perbaiki lalu unggah ulang.');
+  $('#btn-sub').onclick = () => confirmModal({
+    title:'Submit Data', danger:false, okLabel:'Yes, Continue',
+    text:`Pindahkan <b>${ROWS.length} baris</b> dari tabel sementara ke tabel utama?`,
+    onOk:()=>{ toast(ROWS.length+' baris berhasil diimport.'); setTimeout(()=>location.href=M.back, 900); }
+  });
+}
+draw();
+$('#btn-tpl').onclick = () => toast('Template-'+MOD+'.xlsx diunduh.');
+
+/* Klik area seret berkas = Browse File (membuka file explorer perangkat) */
+const fi = $('#file'), dz = $('#dz');
+const pick = () => fi.click();
+$('#btn-browse').onclick = pick;
+dz.onclick = pick;
+dz.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(); } };
+fi.onchange = () => { if (fi.files && fi.files[0]) accept(fi.files[0]); };
+
+['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); dz.classList.add('over');
+}));
+['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); dz.classList.remove('over');
+}));
+dz.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) accept(f); });
+
+function accept(f){
+  if (!/\.(xlsx|xls)$/i.test(f.name)){ toast('Hanya berkas .xlsx yang dapat diunggah.','err'); return; }
+  const kb = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' : Math.max(1, Math.round(f.size/1024))+' KB';
+  const fn = $('#fname');
+  fn.hidden = false;
+  fn.innerHTML = `${icon('paperclip',14)} <b>${esc(f.name)}</b> <span>${kb}</span>`;
+  toast('Berkas dibaca dan divalidasi…','info');
+  setTimeout(draw, 500);
+}
+
+</script>
+</body>
+</html>

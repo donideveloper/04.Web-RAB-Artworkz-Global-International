@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AHS — Penyusunan &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="unit-price-analysis" data-title="AHS — Penyusunan">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone">
+<div id="head"></div>
+<div class="row g-3">
+  <div class="col-12 col-xl-8"><div id="blocks"></div></div>
+  <div class="col-12 col-xl-4"><div class="side-panel" id="calc"></div></div>
+</div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+const KODE = new URLSearchParams(location.search).get('kode') || 'WD.2';
+const ahs = DB.AHS.find(a=>a.kode===KODE) || DB.AHS[2];
+DB.AHS_D[ahs.kode] = DB.AHS_D[ahs.kode] || JSON.parse(JSON.stringify(DB.AHS_D['WD.2']));
+const d = DB.AHS_D[ahs.kode];
+const canMargin = can('unit-price-analysis','approve');
+const RO = !can('unit-price-analysis','edit');
+
+const sumA = () => d.A.reduce((s,x)=>s+x.koef*x.harga, 0);
+const sumB = () => d.B.reduce((s,x)=>s+x.koef*x.harga, 0);
+const sumC = () => d.C.reduce((s,x)=>s + (x.jenis==='Persentase' ? (sumA()+sumB())*x.nilai : x.nilai), 0);
+const D = () => sumA()+sumB()+sumC();
+const E = () => D()*ahs.margin;
+const F = () => D()+E();
+
+$('#head').innerHTML = `
+<div class="card"><div class="card-tb">
+  <div>
+    <a href="unit-price-analysis.html" class="btn btn-ghost btn-sm mb-2">${icon('back',14)} Back to list</a>
+    <h2>${esc(ahs.kode)} &middot; ${esc(ahs.nama)}</h2>
+    <p>Kelompok ${esc((DB.WORKGROUP.find(w=>w.kode===ahs.grp)||{}).nama||'-')} &middot; Satuan ${esc(ahs.sat)} &middot;
+       Breakdown rujukan ${esc(ahs.bd||'-')} &middot; Margin ${pct(ahs.margin)} &middot; ${statusBadge(ahs.status)}</p>
+  </div>
+  <div class="acts">
+    <button class="btn btn-ghost" id="btn-sim">${icon('trend',15)} Price Simulation</button>
+    ${RO?'':`<button class="btn btn-ghost" id="btn-load">${icon('download',15)} Load from Breakdown</button>
+    <button class="btn btn-primary" id="btn-save">${icon('save',15)} Save AHS</button>`}
+  </div>
+</div></div>
+${ahs.review?`<div class="alert-box warn">${icon('alert',16)}<div>AHS ini perlu ditinjau ulang: harga salah satu komponen penyusunnya telah berubah sejak terakhir disimpan.</div></div>`:''}
+${canMargin?'':roleNote('Role <b>'+curRole()+'</b>: margin terkunci. Hanya role SPV ke atas yang dapat mengubah persentase margin.')}`;
+
+function blockTable(title, key, rows, note){
+  return `<div class="card">
+    <div class="card-tb" style="padding:14px 20px">
+      <div><h2 style="font-size:14px">${title}</h2>${note?`<p>${note}</p>`:''}</div>
+      ${RO?'':`<div class="acts"><button class="btn btn-ghost btn-sm" data-add="${key}">${icon('plus',14)} Add Row</button></div>`}
+    </div>
+    <div class="tbl-wrap"><table class="dt"><thead><tr>
+      <th style="width:120px">Kode</th><th>Uraian</th><th style="width:78px">Sat.</th>
+      <th class="right" style="width:104px">Koefisien</th><th class="right" style="width:140px">Harga Satuan</th>
+      <th class="right" style="width:150px">Jumlah Harga</th>${RO?'':'<th style="width:48px"></th>'}
+    </tr></thead><tbody>
+      ${rows.map((r,i)=>`<tr>
+        <td><span class="mono" style="font-size:11px">${esc(r.kode)}</span></td>
+        <td>${key==='B'&&DB.AHS.some(a=>a.kode===r.kode)?icon('calc',13)+' ':''}${esc(r.nama)}</td>
+        <td>${esc(r.sat)}</td>
+        <td class="right">${RO?nf(r.koef):`<span class="editable num" contenteditable data-b="${key}" data-i="${i}" data-k="koef">${r.koef}</span>`}</td>
+        <td class="right num">${rp(r.harga)}</td>
+        <td class="right num cell-main">${rp(r.koef*r.harga)}</td>
+        ${RO?'':`<td><button class="icon-btn danger" data-del="${key}:${i}">${icon('trash',15)}</button></td>`}
+      </tr>`).join('')}
+      <tr class="sub-total"><td colspan="${RO?5:5}">Jumlah ${title.split('—')[1]||title}</td>
+        <td class="right num">${rp(rows===d.A?sumA():sumB())}</td>${RO?'':'<td></td>'}</tr>
+    </tbody></table></div></div>`;
+}
+
+function draw(){
+  $('#blocks').innerHTML =
+    blockTable('A &mdash; Upah Tenaga Kerja', 'A', d.A) +
+    blockTable('B &mdash; Bahan', 'B', d.B, 'Baris dapat berupa material maupun AHS lain (ditandai ikon).') +
+    `<div class="card">
+      <div class="card-tb" style="padding:14px 20px"><div><h2 style="font-size:14px">C &mdash; Biaya Lain</h2>
+        <p>Pengisian berupa nilai tetap atau persentase terhadap A + B.</p></div>
+        ${RO?'':`<div class="acts"><button class="btn btn-ghost btn-sm" data-add="C">${icon('plus',14)} Add Row</button></div>`}</div>
+      <div class="tbl-wrap"><table class="dt"><thead><tr>
+        <th style="width:120px">Kode</th><th>Uraian</th><th style="width:150px">Jenis</th>
+        <th class="right" style="width:140px">Nilai</th><th class="right" style="width:150px">Jumlah Harga</th>${RO?'':'<th style="width:48px"></th>'}
+      </tr></thead><tbody>
+        ${d.C.map((r,i)=>`<tr>
+          <td><span class="mono" style="font-size:11px">${esc(r.kode)}</span></td><td>${esc(r.nama)}</td>
+          <td><span class="bdg ${r.jenis==='Persentase'?'blue':'off'}">${esc(r.jenis)}</span></td>
+          <td class="right num">${r.jenis==='Persentase'?(r.nilai*100).toFixed(2)+'%':rp(r.nilai)}</td>
+          <td class="right num cell-main">${rp(r.jenis==='Persentase'?(sumA()+sumB())*r.nilai:r.nilai)}</td>
+          ${RO?'':`<td><button class="icon-btn danger" data-del="C:${i}">${icon('trash',15)}</button></td>`}
+        </tr>`).join('')}
+        <tr class="sub-total"><td colspan="4">Jumlah Biaya Lain</td><td class="right num">${rp(sumC())}</td>${RO?'':'<td></td>'}</tr>
+      </tbody></table></div></div>`;
+
+  $$('[contenteditable]').forEach(el=>{
+    el.onblur = () => { d[el.dataset.b][+el.dataset.i].koef = parseFloat(el.textContent.replace(',','.'))||0; draw(); drawCalc(); saveDB(); };
+    el.onkeydown = e => { if(e.key==='Enter'){ e.preventDefault(); el.blur(); } };
+  });
+  $$('[data-del]').forEach(b=>b.onclick=()=>{
+    const [k,i] = b.dataset.del.split(':'); d[k].splice(+i,1); draw(); drawCalc(); saveDB(); toast('Baris berhasil dihapus.');
+  });
+  $$('[data-add]').forEach(b=>b.onclick=()=>addRow(b.dataset.add));
+}
+
+function addRow(k){
+  const isC = k==='C';
+  const opts = k==='A' ? DB.LABOR.map(l=>({v:l.kode,l:l.kode+' — '+l.nama+' ('+rp(l.tarif)+')'}))
+    : DB.MATERIAL.map(m=>({v:m.kode,l:m.kode+' — '+m.nama})).concat(DB.AHS.filter(a=>a.kode!==ahs.kode).map(a=>({v:a.kode,l:'[AHS] '+a.kode+' — '+a.nama})));
+  openModal({
+    title:'Add Row — Blok '+k, size:'lg',
+    body: isC
+      ? formHTML([{key:'kode',label:'Kode',required:true},{key:'nama',label:'Uraian',required:true},
+          {key:'jenis',label:'Jenis Pengisian',type:'select',options:['Nilai Tetap','Persentase'],required:true},
+          {key:'nilai',label:'Nilai',type:'number',required:true,help:'Persentase ditulis dalam angka persen, contoh 2 untuk 2%.'}], {jenis:'Nilai Tetap'})
+      : formHTML([{key:'kode',label:k==='A'?'Jenis Upah':'Material / AHS',type:'select',options:opts,required:true,full:true},
+          {key:'koef',label:'Koefisien',type:'number',step:'0.0001',required:true}], {koef:1}),
+    footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(c,el)=>{
+      if (isC){
+        const o = readForm(el,[{key:'kode'},{key:'nama'},{key:'jenis'},{key:'nilai',type:'number'}]);
+        o.nilai = o.jenis==='Persentase' ? o.nilai/100 : o.nilai;
+        d.C.push(o);
+      } else {
+        const o = readForm(el,[{key:'kode'},{key:'koef',type:'number'}]);
+        const src = k==='A' ? DB.LABOR.find(x=>x.kode===o.kode)
+          : (DB.MATERIAL.find(x=>x.kode===o.kode) || DB.AHS.find(x=>x.kode===o.kode));
+        d[k].push({kode:o.kode, nama:src.nama, sat:src.sat, koef:o.koef, harga:src.harga||src.tarif||src.hsp||0});
+      }
+      saveDB(); draw(); drawCalc(); c(); toast('Baris berhasil ditambahkan.');
+    }}]
+  });
+}
+
+function drawCalc(){
+  const a=sumA(), b=sumB(), c=sumC(), tot=F();
+  const bar = [[a,'var(--primary)','Upah'],[b,'var(--ok)','Bahan'],[c,'var(--warn)','Biaya lain'],[E(),'var(--info)','Margin']];
+  $('#calc').innerHTML = `
+  <div class="card">
+    <div class="card-tb"><div><h2>Perhitungan</h2><p>Harga satuan pekerjaan per ${esc(ahs.sat)}.</p></div></div>
+    <div class="card-body">
+      <div class="kv"><span>A &mdash; Jumlah Upah</span><b class="num">${rp(a)}</b></div>
+      <div class="kv"><span>B &mdash; Jumlah Bahan</span><b class="num">${rp(b)}</b></div>
+      <div class="kv"><span>C &mdash; Biaya Lain</span><b class="num">${rp(c)}</b></div>
+      <div class="kv"><span><b>D &mdash; Jumlah A + B + C</b></span><b class="num">${rp(a+b+c)}</b></div>
+      <div class="kv"><span>E &mdash; Margin
+        ${canMargin?`<input type="number" id="mg" value="${(ahs.margin*100).toFixed(0)}" style="width:64px" class="form-control d-inline-block ms-1 py-0"> %`
+        :`<span class="bdg off ms-1">${pct(ahs.margin)} terkunci</span>`}</span><b class="num">${rp(E())}</b></div>
+      <div class="kv total"><span>F &mdash; Harga Satuan Pekerjaan</span><b class="num">${rp(tot)}</b></div>
+      <div class="mt-3">
+        <div class="bar">${bar.map(x=>`<i style="width:${(x[0]/tot*100).toFixed(1)}%;background:${x[1]}"></i>`).join('')}</div>
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          ${bar.map(x=>`<span class="text-ink2" style="font-size:11.5px">
+            <span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${x[1]}"></span>
+            ${x[2]} ${(x[0]/tot*100).toFixed(1)}%</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  const mg = $('#mg');
+  if (mg) mg.onchange = () => { ahs.margin = (Number(mg.value)||0)/100; drawCalc(); saveDB(); };
+}
+draw(); drawCalc();
+
+$('#btn-sim').onclick = () => openModal({
+  title:'Price Simulation', sub:'Perbandingan harga tersimpan dengan harga terkini per baris komponen.', size:'lg',
+  body:`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Komponen</th><th class="right">Harga Tersimpan</th>
+    <th class="right">Harga Terkini</th><th class="right">Selisih</th></tr></thead><tbody>
+    ${d.B.map(r=>{
+      const m = DB.MATERIAL.find(x=>x.kode===r.kode);
+      const now = m ? m.harga : r.harga, sel = (now-r.harga)*r.koef;
+      return `<tr><td>${esc(r.nama)}</td><td class="right num">${rp(r.harga)}</td><td class="right num">${rp(now)}</td>
+        <td class="right num" style="color:var(--${sel>=0?'danger':'ok'})">${sel>=0?'+':''}${nf(sel)}</td></tr>`;
+    }).join('')}
+  </tbody></table></div>
+  <div class="alert-box info mt-3">${icon('info',16)}<div>Simulasi tidak mengubah data tersimpan. Gunakan tombol Save AHS untuk menerapkan harga terkini.</div></div>`,
+  footer:[{label:'Close'}]
+});
+if ($('#btn-load')) $('#btn-load').onclick = () => {
+  if (!ahs.bd){ toast('AHS ini belum memiliki breakdown rujukan.','warn'); return; }
+  toast('Blok B diisi dari rekapitulasi breakdown '+ahs.bd+'.');
+};
+if ($('#btn-save')) $('#btn-save').onclick = () => {
+  ahs.hsp = Math.round(F()); ahs.review = false; saveDB();
+  toast('AHS '+ahs.kode+' berhasil disimpan. Harga satuan '+rp(ahs.hsp)+'.');
+};
+
+</script>
+</body>
+</html>

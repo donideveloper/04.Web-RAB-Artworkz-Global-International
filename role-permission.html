@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Role — Set Permission &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="role" data-title="Role — Set Permission">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"><div id="head"></div><div id="tree"></div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+const RK = new URLSearchParams(location.search).get('role') || 'EST';
+const role = DB.ROLES.find(r=>r.kode===RK) || DB.ROLES[0];
+const granted = {};
+DB.PERMISSIONS.forEach(p=>{
+  const map = DB.ROLE_PERM[RK]||{};
+  const all = map['*'];
+  granted[p.kode] = all ? p.fitur.slice() : (Object.keys(map).length && p.menu ? [] : []);
+});
+/* prefill kasar dari ROLE_PERM agar demo terasa nyata */
+DB.PERMISSIONS.forEach(p=>{
+  const map = DB.ROLE_PERM[RK]||{};
+  if (map['*']) { granted[p.kode]=p.fitur.slice(); return; }
+  const slug = p.menu.toLowerCase().replace(/ & | /g,'-').replace('project-&-quotation','project');
+  const key = Object.keys(map).find(k=>slug.startsWith(k)||k.startsWith(slug.split('-')[0]));
+  granted[p.kode] = key ? p.fitur.filter(f=>map[key].includes(f.toLowerCase())) : [];
+});
+
+$('#head').innerHTML = `
+  <div class="card"><div class="card-tb">
+    <div>
+      <a href="role.html" class="btn btn-ghost btn-sm mb-2">${icon('back',14)} Back to Role</a>
+      <h2>Set Permission &mdash; ${esc(role.kode)} · ${esc(role.nama)}</h2>
+      <p>${esc(role.desc)}</p>
+    </div>
+    <div class="acts">
+      <button class="btn btn-ghost" id="btn-none">${icon('x',15)} Clear All</button>
+      <button class="btn btn-ghost" id="btn-all">${icon('check',15)} Select All</button>
+      <button class="btn btn-primary" id="btn-save">${icon('save',15)} Save Permission</button>
+    </div>
+  </div></div>`;
+
+function draw(){
+  const mods = [...new Set(DB.PERMISSIONS.map(p=>p.modul))];
+  $('#tree').innerHTML = mods.map(m=>`
+    <div class="card"><div class="card-tb" style="padding:13px 20px">
+      <div><h2 style="font-size:14px">${esc(m)}</h2></div>
+      <div class="acts"><button class="btn btn-ghost btn-sm" data-mod="${esc(m)}">${icon('check',14)} Select all in module</button></div>
+    </div>
+    <div class="card-body">
+      ${DB.PERMISSIONS.filter(p=>p.modul===m).map(p=>`
+        <div class="d-flex flex-wrap align-items-start gap-2 py-2" style="border-bottom:1px solid var(--line-soft)">
+          <div style="min-width:210px">
+            <div class="cell-main">${esc(p.menu)}</div>
+            <code>${esc(p.url)}</code>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            ${p.fitur.map(f=>`<label class="form-check m-0">
+              <input class="form-check-input" type="checkbox" data-p="${p.kode}" value="${esc(f)}" ${granted[p.kode].includes(f)?'checked':''}>
+              <span class="form-check-label">${esc(f)}</span></label>`).join('')}
+          </div>
+        </div>`).join('')}
+    </div></div>`).join('') + `
+    <div class="card"><div class="card-body d-flex justify-content-between flex-wrap gap-2">
+      <div><b id="sum">0</b> permission terpilih dari ${DB.PERMISSIONS.length} menu.</div>
+      <div class="text-ink3">Hak akses efektif pengguna = gabungan seluruh permission dari role yang dimilikinya.</div>
+    </div></div>`;
+
+  $$('[data-p]').forEach(c=>c.onchange=()=>{
+    const arr = granted[c.dataset.p];
+    const i = arr.indexOf(c.value);
+    if (c.checked && i<0) arr.push(c.value);
+    if (!c.checked && i>-1) arr.splice(i,1);
+    sum();
+  });
+  $$('[data-mod]').forEach(b=>b.onclick=()=>{
+    DB.PERMISSIONS.filter(p=>p.modul===b.dataset.mod).forEach(p=>granted[p.kode]=p.fitur.slice());
+    draw();
+  });
+  sum();
+}
+function sum(){ const n = Object.values(granted).filter(a=>a.length).length; const e=$('#sum'); if(e) e.textContent=n; }
+draw();
+$('#btn-all').onclick  = ()=>{ DB.PERMISSIONS.forEach(p=>granted[p.kode]=p.fitur.slice()); draw(); };
+$('#btn-none').onclick = ()=>{ DB.PERMISSIONS.forEach(p=>granted[p.kode]=[]); draw(); };
+$('#btn-save').onclick = ()=>toast('Permission role '+RK+' berhasil disimpan.');
+
+</script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material Breakdown — Penyusunan &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="material-breakdown" data-title="Material Breakdown — Penyusunan">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone">
+<div id="head"></div>
+<div class="row g-3">
+  <div class="col-12 col-xl-8"><div id="detail"></div></div>
+  <div class="col-12 col-xl-4"><div class="side-panel" id="recap"></div></div>
+</div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+const KODE = new URLSearchParams(location.search).get('kode') || 'BD-WD-001';
+const bd = DB.BREAKDOWN.find(b=>b.kode===KODE) || DB.BREAKDOWN[0];
+DB.BREAKDOWN_D[bd.kode] = DB.BREAKDOWN_D[bd.kode] || DB.BREAKDOWN_D['BD-WD-001'].map(x=>({...x}));
+const rows = DB.BREAKDOWN_D[bd.kode];
+const matOf = k => DB.MATERIAL.find(m=>m.kode===k) || {nama:k, harga:0, sat:'-'};
+const volOf = r => (r.p && r.l) ? r.p*r.l*r.jml : r.jml;
+const volW  = r => volOf(r)*(1+ (r.waste||0));
+const RO = !can('material-breakdown','edit');
+
+$('#head').innerHTML = `
+<div class="card"><div class="card-tb">
+  <div>
+    <a href="material-breakdown.html" class="btn btn-ghost btn-sm mb-2">${icon('back',14)} Back to list</a>
+    <h2>${esc(bd.kode)} &middot; ${esc(bd.nama)}</h2>
+    <p>Dimensi ${esc(bd.dim)} &middot; Satuan ${esc(bd.sat)} &middot; Finishing ${esc(bd.finishing)} &middot; ${statusBadge(bd.status)}</p>
+  </div>
+  <div class="acts">
+    ${can('material-breakdown','export')?`<button class="btn btn-ghost" id="btn-exp">${icon('download',15)} Download Excel</button>`:''}
+    ${RO?'':`<button class="btn btn-ghost" id="btn-add">${icon('plus',15)} Add Row</button>
+    <button class="btn btn-primary" id="btn-save">${icon('save',15)} Save Breakdown</button>`}
+  </div>
+</div></div>`;
+
+function draw(){
+  const grps = [...new Set(rows.map(r=>r.grp))];
+  $('#detail').innerHTML = `
+  <div class="card">
+    <div class="card-tb"><div><h2>Detail Material</h2>
+      <p>${RO?'Mode hanya baca.':'Sel bertanda kuning dapat disunting langsung. Kolom Volume dihitung otomatis.'}</p></div></div>
+    <div class="tbl-wrap"><table class="dt">
+      <thead><tr>
+        <th style="width:48px">No</th><th style="width:200px">Material</th><th>Bagian Benda Kerja</th>
+        <th class="right" style="width:84px">P (m)</th><th class="right" style="width:84px">L (m)</th>
+        <th class="right" style="width:74px">Jml</th><th class="right" style="width:96px">Volume</th>
+        <th style="width:72px">Satuan</th><th class="right" style="width:80px">Waste</th>
+        <th class="right" style="width:112px">Vol + Waste</th>${RO?'':'<th style="width:52px"></th>'}
+      </tr></thead>
+      <tbody>
+      ${grps.map(g=>{
+        const items = rows.filter(r=>r.grp===g);
+        return `<tr class="grp"><td colspan="${RO?10:11}">${esc(g)}</td></tr>` + items.map(r=>{
+          const i = rows.indexOf(r), m = matOf(r.mat);
+          const ed = (k,v,dec) => RO ? `<span class="num">${nf(v)}</span>`
+            : `<span class="editable num" contenteditable data-i="${i}" data-k="${k}">${v}</span>`;
+          return `<tr>
+            <td class="text-ink3">${items.indexOf(r)+1}</td>
+            <td><span class="mono" style="font-size:11px">${esc(r.mat)}</span><span class="cell-sub">${esc(m.nama)}</span></td>
+            <td>${RO?esc(r.bagian):`<span class="editable" contenteditable data-i="${i}" data-k="bagian">${esc(r.bagian)}</span>`}</td>
+            <td class="right">${ed('p', r.p)}</td>
+            <td class="right">${ed('l', r.l)}</td>
+            <td class="right">${ed('jml', r.jml)}</td>
+            <td class="right num">${nf(volOf(r))}</td>
+            <td>${esc(r.sat)}</td>
+            <td class="right num">${(r.waste*100).toFixed(0)}%</td>
+            <td class="right num cell-main">${nf(volW(r))}</td>
+            ${RO?'':`<td><button class="icon-btn danger" data-del="${i}" title="Hapus baris">${icon('trash',15)}</button></td>`}
+          </tr>`;
+        }).join('');
+      }).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+
+  $$('[contenteditable]').forEach(el=>{
+    el.onblur = () => {
+      const r = rows[+el.dataset.i], k = el.dataset.k;
+      r[k] = k==='bagian' ? el.textContent.trim() : (parseFloat(el.textContent.replace(',','.'))||0);
+      draw(); drawRecap(); saveDB();
+    };
+    el.onkeydown = e => { if (e.key==='Enter'){ e.preventDefault(); el.blur(); } };
+  });
+  $$('[data-del]').forEach(b=>b.onclick=()=>confirmModal({
+    title:'Confirm Delete', text:'Hapus baris material ini dari breakdown?',
+    onOk:()=>{ rows.splice(+b.dataset.del,1); bd.baris=rows.length; saveDB(); draw(); drawRecap(); toast('Baris berhasil dihapus.'); }
+  }));
+}
+
+function drawRecap(){
+  const agg = {};
+  rows.forEach(r=>{ agg[r.mat] = (agg[r.mat]||0) + volW(r); });
+  const list = Object.entries(agg).map(([k,v])=>({k, v, m:matOf(k)}));
+  const total = list.reduce((s,x)=>s + x.v*x.m.harga, 0);
+  $('#recap').innerHTML = `
+  <div class="card">
+    <div class="card-tb"><div><h2>Rekapitulasi Kebutuhan</h2>
+      <p>Penjumlahan seluruh baris dengan material sama. Rekap inilah yang menjadi komponen B pada AHS.</p></div></div>
+    <div class="card-body">
+      ${list.map(x=>`<div class="kv">
+        <span><b style="display:block">${esc(x.m.nama)}</b>
+        <span class="text-ink3" style="font-size:11.5px">${nf(x.v)} ${esc(x.m.sat)} &times; ${rp(x.m.harga)}</span></span>
+        <b class="num">${rp(x.v*x.m.harga)}</b></div>`).join('')}
+      <div class="kv total"><span>Total Kebutuhan Material</span><b class="num">${rp(total)}</b></div>
+    </div>
+    <div class="card-foot"><span>${list.length} jenis material</span>
+      <button class="btn btn-ghost btn-sm" onclick="toast('Rekapitulasi dikirim ke blok B pada AHS.','info')">${icon('send',14)} Load to AHS</button></div>
+  </div>`;
+}
+draw(); drawRecap();
+
+if ($('#btn-add')) $('#btn-add').onclick = () => openModal({
+  title:'Add Row', sub:'Tambah baris material pada breakdown.', size:'lg',
+  body: formHTML([
+    {key:'grp', label:'Kelompok', type:'select', required:true, options:[...new Set(rows.map(r=>r.grp))].concat(['F. Lain-lain'])},
+    {key:'mat', label:'Material', type:'select', required:true,
+     options:()=>DB.MATERIAL.filter(m=>m.sts_harga!=='Belum Ada Harga').map(m=>({v:m.kode,l:m.kode+' — '+m.nama+' ('+rp(m.harga)+')'}))},
+    {key:'bagian', label:'Bagian Benda Kerja', required:true, full:true},
+    {key:'p', label:'Panjang (m)', type:'number', step:'0.01'},
+    {key:'l', label:'Lebar (m)', type:'number', step:'0.01'},
+    {key:'jml', label:'Jumlah', type:'number', required:true},
+    {key:'sat', label:'Satuan', type:'select', options:()=>DB.UOM.map(u=>u.kode.toLowerCase())},
+    {key:'waste', label:'Waste (%)', type:'number'}
+  ], {jml:1, waste:8, sat:'m2'}),
+  footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(c,el)=>{
+    const o = readForm(el, [{key:'grp'},{key:'mat'},{key:'bagian'},{key:'p',type:'number'},{key:'l',type:'number'},
+      {key:'jml',type:'number'},{key:'sat'},{key:'waste',type:'number'}]);
+    if (!o.bagian || !o.jml){ toast('Bagian benda kerja dan jumlah wajib diisi.','err'); return; }
+    o.waste = Number(o.waste)/100; rows.push(o); bd.baris = rows.length;
+    saveDB(); draw(); drawRecap(); c(); toast('Baris material berhasil ditambahkan.');
+  }}]
+});
+if ($('#btn-save')) $('#btn-save').onclick = () => { bd.baris=rows.length; saveDB(); toast('Breakdown '+bd.kode+' berhasil disimpan.'); };
+if ($('#btn-exp'))  $('#btn-exp').onclick  = () => toast('Breakdown diekspor ke '+bd.kode+'.xlsx.');
+
+</script>
+</body>
+</html>

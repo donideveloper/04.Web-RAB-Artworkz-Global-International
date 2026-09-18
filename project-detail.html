@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Detail &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="project" data-title="Project Detail">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"><div id="head"></div><div class="tabs" id="tabs"></div><div id="tabbody" style="padding-top:16px"></div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+const NO = new URLSearchParams(location.search).get('no') || 'PRJ-2026-013';
+const prj = DB.PROJECT.find(p=>p.no===NO) || DB.PROJECT[0];
+const client = DB.CLIENT.find(c=>c.kode===prj.client) || {};
+const P = DB.PROJECT_PARAM;
+const canParam = can('project','discount');
+const RO = !can('project','edit');
+
+const items = () => DB.BOQ.filter(r=>r.t==='item');
+const grpTotal = g => { /* subtotal per grup */
+  let cur = null, sum = {};
+  DB.BOQ.forEach(r=>{ if(r.t==='grp') { cur = r.uraian; sum[cur]=0; } if(r.t==='item') sum[cur]+= r.vol*r.harga; });
+  return g ? sum[g] : sum;
+};
+const grandTotal = () => items().reduce((s,r)=>s+r.vol*r.harga, 0);
+const afterDisc  = () => grandTotal() - (P.disc||0);
+const ppnVal     = () => afterDisc()*P.ppn;
+const finalVal   = () => Math.round((afterDisc()+ppnVal())/P.bulat)*P.bulat;
+
+$('#head').innerHTML = `
+<div class="card" style="margin-bottom:0;border-radius:var(--r-card) var(--r-card) 0 0;border-bottom:none">
+  <div class="card-tb">
+    <div>
+      <a href="project.html" class="btn btn-ghost btn-sm mb-2">${icon('back',14)} Back to list</a>
+      <h2>${esc(prj.no)} &middot; ${esc(prj.nama)}</h2>
+      <p>${esc(client.nama||'-')} &middot; ${esc(prj.lokasi)} &middot; Estimator ${esc(prj.est)} &middot; ${statusBadge(prj.status)}</p>
+    </div>
+    <div class="acts">
+      <button class="btn btn-ghost" onclick="toast('Data project diekspor ke Excel.')">${icon('download',15)} Download Excel</button>
+      ${can('project','print')?`<button class="btn btn-ghost" onclick="go('quotation')">${icon('print',15)} Print Quotation</button>`:''}
+      ${RO?'':`<button class="btn btn-primary" id="btn-save">${icon('save',15)} Save Project</button>`}
+    </div>
+  </div>
+</div>`;
+
+const TABS = [['info','Information'],['items','Work Items'],['recap','Recap'],['quotation','Quotation'],['rev','Revision History']];
+let cur = location.hash.replace('#','') || 'info';
+function go(k){ cur=k; location.hash=k; render(); }
+function render(){
+  $('#tabs').innerHTML = TABS.map(([k,t])=>`<a href="#${k}" class="${k===cur?'active':''}" data-t="${k}">${t}</a>`).join('');
+  $$('[data-t]').forEach(a=>a.onclick=e=>{ e.preventDefault(); go(a.dataset.t); });
+  $('#tabbody').innerHTML = ({info:tabInfo, items:tabItems, recap:tabRecap, quotation:tabQuot, rev:tabRev})[cur]();
+  wire();
+}
+
+/* ---------- TAB INFORMATION ---------- */
+function tabInfo(){
+  return `<div class="row g-3">
+    <div class="col-12 col-xl-7">
+      <div class="card"><div class="card-tb"><div><h2>Identitas Project</h2><p>Data yang tercetak pada kepala dokumen penawaran.</p></div></div>
+        <div class="card-body">${formHTML([
+          {key:'client', label:'Client', type:'select', options:()=>DB.CLIENT.map(c=>({v:c.kode,l:c.nama})), disabled:RO},
+          {key:'no', label:'Nomor Project', disabled:true},
+          {key:'nama', label:'Nama Project', full:true, disabled:RO},
+          {key:'lokasi', label:'Lokasi', disabled:RO},
+          {key:'jenis', label:'Jenis Bangunan', type:'select', options:()=>DB.BUILDING.map(b=>b.nama), disabled:RO},
+          {key:'tgl', label:'Tanggal Penawaran', type:'date', disabled:RO},
+          {key:'est', label:'Estimator Penanggung Jawab', disabled:RO}
+        ], {...prj, jenis:client.jenis})}</div></div>
+
+      <div class="card"><div class="card-tb"><div><h2>Parameter Perhitungan</h2>
+        <p>${canParam?'Role '+curRole()+' dapat menyesuaikan parameter.':'Parameter terkunci untuk role '+curRole()+' dan mengikuti Master Data Setting.'}</p></div></div>
+        <div class="card-body">${formHTML([
+          {key:'margin', label:'Margin (%)', type:'number', disabled:!canParam},
+          {key:'jasa', label:'Jasa Kontraktor (%)', type:'number', disabled:!canParam},
+          {key:'ppn', label:'PPN (%)', type:'number', disabled:!canParam},
+          {key:'bulat', label:'Pembulatan (Rp)', type:'number', disabled:!canParam},
+          {key:'tgl_harga', label:'Tanggal Acuan Harga', type:'date', disabled:!canParam},
+          {key:'valid', label:'Masa Berlaku (hari)', type:'number', disabled:!canParam}
+        ], {margin:P.margin*100, jasa:P.jasa*100, ppn:P.ppn*100, bulat:P.bulat, tgl_harga:P.tgl_harga, valid:P.valid})}</div></div>
+    </div>
+    <div class="col-12 col-xl-5">
+      <div class="card"><div class="card-tb"><div><h2>Lampiran</h2><p>Berkas disimpan pada Google Drive perusahaan.</p></div>
+        <div class="acts">${RO?'':`<button class="btn btn-ghost btn-sm" id="btn-upl">${icon('upload',14)} Upload</button>`}</div></div>
+        <div class="card-body">
+          <input type="file" id="dz-file" multiple hidden>
+          <div class="dropzone mb-3" id="dz" tabindex="0" role="button">${icon('upload',22)}<div class="mt-2">Seret berkas ke sini atau klik untuk memilih dari komputer</div>
+            <span class="form-hint">PDF, JPG, PNG, ZIP &middot; maksimal 25 MB per berkas</span>
+            <div class="file-pick" id="dz-name" hidden></div></div>
+          ${DB.ATTACH.map(a=>`<div class="kv"><span>${icon('paperclip',14)} <b>${esc(a.nama)}</b>
+            <span class="cell-sub">${esc(a.ukuran)} &middot; ${esc(a.oleh)} &middot; ${esc(a.waktu)} &middot; ${esc(a.drive)}</span></span>
+            <button class="icon-btn" onclick="toast('Berkas diunduh dari Google Drive.','info')">${icon('download',15)}</button></div>`).join('')}
+        </div></div>
+
+      <div class="card"><div class="card-tb"><div><h2>Riwayat Status</h2></div></div>
+        <div class="card-body"><div class="timeline">
+          <div class="ti"><p>Project dibuat</p><span>12/09/2026 10:15 &middot; Dewi Lestari</span></div>
+          <div class="ti"><p>BOQ selesai disusun (19 baris)</p><span>14/09/2026 16:40 &middot; Dewi Lestari</span></div>
+          <div class="ti"><p>Revisi R1 dibuat &mdash; permintaan client</p><span>15/09/2026 09:22 &middot; Dewi Lestari</span></div>
+          <div class="ti"><p>Harga material diperbarui ke harga terkini</p><span>17/09/2026 11:05 &middot; Budi Prasetyo</span></div>
+        </div></div></div>
+    </div>
+  </div>`;
+}
+
+/* ---------- TAB WORK ITEMS ---------- */
+function tabItems(){
+  const totals = grpTotal();
+  return `<div class="row g-3">
+    <div class="col-12 col-lg-3">
+      <div class="card"><div class="card-tb" style="padding:14px 18px"><div><h2 style="font-size:14px">Struktur Pekerjaan</h2></div></div>
+        <div class="card-body tree">
+          ${DB.BOQ.filter(r=>r.t==='grp').map((g,i)=>`
+            <div class="node ${i===0?'active':''}">${icon('folder',14)} ${esc(g.no)}. ${esc(g.uraian)}
+              <span class="amt">${nf(totals[g.uraian]/1e6)} jt</span></div>
+            ${DB.BOQ.filter(r=>r.t==='item' && r.no.startsWith(String(DB.BOQ.filter(x=>x.t==='grp').indexOf(g)+1)+'.')).map(it=>
+              `<div class="node lvl2">${esc(it.no)} ${esc(it.uraian.slice(0,26))}${it.uraian.length>26?'…':''}</div>`).join('')}
+          `).join('')}
+        </div></div>
+    </div>
+    <div class="col-12 col-lg-9">
+      <div class="card">
+        <div class="card-tb"><div><h2>Bill of Quantity</h2>
+          <p>Baris abu = judul kelompok, baris terang = subtotal, baris miring = keterangan spesifikasi (ikut tercetak, tidak dihitung).</p></div>
+          <div class="acts">
+            ${can('project','import')?`<button class="btn btn-ghost" onclick="location.href='upload-preview.html?m=boq'">${icon('upload',15)} Upload BOQ</button>`:''}
+            ${RO?'':`<button class="btn btn-primary" id="btn-item">${icon('plus',15)} Add Item</button>`}</div></div>
+        <div class="tbl-wrap"><table class="dt">
+          <thead><tr><th style="width:62px">No</th><th>Uraian Pekerjaan</th><th style="width:78px">Sat.</th>
+            <th class="right" style="width:96px">Volume</th><th class="right" style="width:150px">Harga Satuan</th>
+            <th class="right" style="width:160px">Jumlah Harga</th><th style="width:80px"></th></tr></thead>
+          <tbody>${DB.BOQ.map((r,i)=>{
+            if (r.t==='grp')  return `<tr class="grp"><td>${esc(r.no)}</td><td colspan="6">${esc(r.uraian)}</td></tr>`;
+            if (r.t==='sub')  {
+              const g = lastGrp(i);
+              return `<tr class="sub-total"><td></td><td colspan="4">${esc(r.uraian)}</td>
+                <td class="right num">${rp(totals[g])}</td><td></td></tr>`;
+            }
+            if (r.t==='note') return `<tr class="note-row"><td></td><td colspan="6">${esc(r.uraian)}</td></tr>`;
+            return `<tr>
+              <td class="text-ink3">${esc(r.no)}</td>
+              <td><span class="cell-main">${esc(r.uraian)}</span><span class="cell-sub mono">${esc(r.kode)}</span></td>
+              <td>${esc(r.sat)}</td>
+              <td class="right">${RO?nf(r.vol):`<span class="editable num" contenteditable data-i="${i}" data-k="vol">${r.vol}</span>`}</td>
+              <td class="right num">${rp(r.harga)} ${r.adj?`<span title="Harga disesuaikan manual" style="color:var(--warn)">${icon('alert',13)}</span>`:''}</td>
+              <td class="right num cell-main">${rp(r.vol*r.harga)}</td>
+              <td><div class="row-acts">
+                <button class="icon-btn" data-vol="${i}" title="Rincian volume">${icon('list',15)}</button>
+                ${canParam?`<button class="icon-btn warnh" data-adj="${i}" title="Penyesuaian harga satuan">${icon('money',15)}</button>`:''}
+              </div></td></tr>`;
+          }).join('')}</tbody>
+        </table></div>
+        <div class="card-foot"><span>${items().length} item pekerjaan</span>
+          <b style="font-size:15px">Jumlah Total: ${rp(grandTotal())}</b></div>
+      </div>
+    </div>
+  </div>`;
+}
+function lastGrp(i){ for(let j=i;j>=0;j--) if(DB.BOQ[j].t==='grp') return DB.BOQ[j].uraian; return ''; }
+
+/* ---------- TAB RECAP ---------- */
+function tabRecap(){
+  const totals = grpTotal();
+  const jasa = grandTotal()*P.jasa;
+  const showCost = can('project','discount') || curRole()==='SPV';
+  return `<div class="row g-3">
+    <div class="col-12 col-xl-8">
+      <div class="card"><div class="card-tb"><div><h2>Rekapitulasi Nilai Penawaran</h2>
+        <p>Susunan mengikuti format dokumen penawaran perusahaan.</p></div>
+        <div class="acts">
+          <button class="btn btn-ghost" id="btn-sim">${icon('trend',15)} Simulation</button>
+          ${can('project','discount')?`<button class="btn btn-ghost" id="btn-disc">${icon('money',15)} Give Discount</button>`:''}
+        </div></div>
+        <div class="tbl-wrap"><table class="dt">
+          <thead><tr><th style="width:62px">No</th><th>Uraian</th><th class="right" style="width:220px">Jumlah Harga</th></tr></thead>
+          <tbody>
+            ${Object.entries(totals).map(([g,v],i)=>`<tr><td>${['I','II','III','IV','V'][i]}</td><td>${esc(g)}</td>
+              <td class="right num">${rp(v)}</td></tr>`).join('')}
+            <tr class="sub-total"><td></td><td>Jumlah Total</td><td class="right num">${rp(grandTotal())}</td></tr>
+            <tr><td></td><td>Jasa Kontraktor ${pct(P.jasa)} <span class="text-ink3">(informasi, tidak menambah nilai penawaran)</span></td>
+              <td class="right num text-ink3">${rp(jasa)}</td></tr>
+            ${P.disc?`<tr><td></td><td>Diskon</td><td class="right num" style="color:var(--ok)">-${nf(P.disc)}</td></tr>`:''}
+            <tr class="sub-total"><td></td><td>Jumlah Setelah Diskon</td><td class="right num">${rp(afterDisc())}</td></tr>
+            <tr><td></td><td>PPN ${pct(P.ppn)}</td><td class="right num">${rp(ppnVal())}</td></tr>
+            <tr class="sub-total"><td></td><td><b>Jumlah Akhir (dibulatkan ke ${rp(P.bulat)})</b></td>
+              <td class="right num" style="font-size:15px"><b>${rp(finalVal())}</b></td></tr>
+          </tbody></table></div>
+        <div class="card-body" style="background:var(--thead);border-top:1px solid var(--line-soft)">
+          <span class="text-ink2" style="font-size:12px">Terbilang</span>
+          <div style="font-style:italic">${terbilang(finalVal())}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-4">
+      ${showCost?`
+      <div class="card"><div class="card-tb"><div><h2>Struktur Biaya</h2><p>Hanya tampil bagi role SPV ke atas.</p></div></div>
+        <div class="card-body">
+          ${[['Upah',0.34,'var(--primary)'],['Bahan',0.44,'var(--ok)'],['Biaya lain',0.09,'var(--warn)'],['Margin',0.13,'var(--info)']].map(x=>`
+            <div class="kv"><span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${x[2]}"></span>
+              ${x[0]}</span><b class="num">${rp(grandTotal()*x[1])} &middot; ${(x[1]*100).toFixed(0)}%</b></div>`).join('')}
+          <div class="bar mt-3"><i style="width:34%;background:var(--primary)"></i><i style="width:44%;background:var(--ok)"></i>
+            <i style="width:9%;background:var(--warn)"></i><i style="width:13%;background:var(--info)"></i></div>
+        </div></div>
+      <div class="card"><div class="card-tb"><div><h2>Margin Project</h2></div></div>
+        <div class="card-body">
+          <div class="kv"><span>Total biaya langsung</span><b class="num">${rp(grandTotal()*0.87)}</b></div>
+          <div class="kv"><span>Total margin</span><b class="num">${rp(grandTotal()*0.13)}</b></div>
+          <div class="kv total"><span>Persentase margin</span><b>13,0%</b></div>
+        </div></div>`
+      :roleNote('Panel Struktur Biaya dan Margin hanya tampil bagi role SPV, MGR, dan DIR.')}
+    </div>
+  </div>`;
+}
+
+/* ---------- TAB QUOTATION ---------- */
+function tabQuot(){
+  const temuan = [
+    {j:'Menghalangi', t:'Item 2.4 Credenza memakai harga satuan disesuaikan manual tanpa alasan tertulis.', c:'danger'},
+    {j:'Peringatan',  t:'3 material pada AHS WD.2 memiliki harga berumur lebih dari 90 hari.', c:'warn'},
+    {j:'Informasi',   t:'Lampiran spesifikasi belum diunggah untuk kelompok Pekerjaan Lantai.', c:'info'}
+  ];
+  return `<div class="row g-3">
+    <div class="col-12 col-xl-7">
+      <div class="card"><div class="card-tb"><div><h2>Pratinjau Dokumen Quotation</h2>
+        <p>Dokumen sebelum finalisasi diberi penanda diagonal DRAFT pada setiap halaman.</p></div>
+        <div class="acts">
+          <button class="btn btn-ghost" id="btn-opt">${icon('settings',15)} Print Options</button>
+          <button class="btn btn-primary" id="btn-final">${icon('check',15)} Finalize</button></div></div>
+        <div class="card-body">
+          <div class="docpaper watermark">
+            <div class="d-flex justify-content-between mb-4">
+              <div><b style="font-size:15px">PT ARTWORKZ GLOBAL INTERNASIONAL</b><br>
+                Jl. Raya Darmo Permai III No. 21, Surabaya 60226<br>Telp. 031-8291230</div>
+              <div style="text-align:right">
+                <b>QUOTATION</b><br>
+                Date : ${dmy(prj.tgl)}<br>Quotation No : 013/QUO/INT/AGI/IX/26<br>
+                Revision : R2<br>Valid Until : 12/10/2026</div>
+            </div>
+            <div class="mb-3"><b>Kepada Yth.</b><br>${esc(client.nama||'')}<br>${esc(client.pic||'')}<br>${esc(prj.lokasi)}</div>
+            <p class="mb-3">Bersama ini kami sampaikan penawaran harga untuk pekerjaan <b>${esc(prj.nama)}</b> dengan rincian sebagai berikut:</p>
+            <table class="dt" style="font-size:11.5px"><thead><tr><th>No</th><th>Uraian</th><th class="right">Jumlah</th></tr></thead>
+              <tbody>${Object.entries(grpTotal()).map(([g,v],i)=>`<tr><td>${['I','II','III','IV'][i]}</td><td>${esc(g)}</td>
+                <td class="right num">${rp(v)}</td></tr>`).join('')}
+                <tr class="sub-total"><td></td><td>Jumlah Akhir (termasuk PPN)</td><td class="right num">${rp(finalVal())}</td></tr></tbody></table>
+            <p class="mt-3" style="font-style:italic">Terbilang: ${terbilang(finalVal())}</p>
+            <div class="mt-4"><b>Syarat dan Ketentuan</b><br>
+              1. Pembayaran: DP 40%, progres 50%, retensi 10%.<br>
+              2. Harga berlaku 30 hari sejak tanggal penawaran.<br>
+              3. Belum termasuk pekerjaan MEP dan perizinan gedung.</div>
+            <div class="mt-5">Hormat kami,<br><br><br><b>Hendra Kusuma</b><br>Direktur</div>
+          </div>
+        </div></div>
+    </div>
+    <div class="col-12 col-xl-5">
+      <div class="card"><div class="card-tb"><div><h2>Pemeriksaan Kelengkapan</h2>
+        <p>Hanya temuan berjenis Menghalangi yang mencegah finalisasi.</p></div></div>
+        <div class="card-body">${temuan.map(t=>`<div class="alert-box ${t.c}">${icon(t.c==='info'?'info':'alert',16)}
+          <div><b>${t.j}</b><br>${t.t}</div></div>`).join('')}</div></div>
+      <div class="card"><div class="card-tb"><div><h2>Arsip Dokumen</h2><p>Dokumen yang pernah dicetak, dapat diunduh ulang.</p></div></div>
+        <div class="card-body">
+          ${[['013/QUO/INT/AGI/IX/26 — R2 (Draft)','17/09/2026 11:33','PDF'],
+             ['013/QUO/INT/AGI/IX/26 — R1','15/09/2026 09:40','PDF'],
+             ['013/QUO/INT/AGI/IX/26 — R0','12/09/2026 16:02','XLSX']].map(a=>`
+            <div class="kv"><span>${icon('file',14)} <b>${a[0]}</b><span class="cell-sub">${a[1]} &middot; Dewi Lestari &middot; ${a[2]}</span></span>
+            <button class="icon-btn" onclick="toast('Dokumen diunduh ulang dari arsip.','info')">${icon('download',15)}</button></div>`).join('')}
+        </div></div>
+    </div>
+  </div>`;
+}
+
+/* ---------- TAB REVISION ---------- */
+function tabRev(){
+  return `<div class="card">
+    <div class="card-tb"><div><h2>Riwayat Versi Penawaran</h2><p>Versi yang berlaku diberi penanda.</p></div>
+      <div class="acts">${RO?'':`<button class="btn btn-primary" id="btn-rev">${icon('plus',15)} Create Revision</button>`}
+        <button class="btn btn-ghost" id="btn-cmp">${icon('list',15)} Compare Version</button></div></div>
+    <div class="tbl-wrap"><table class="dt">
+      <thead><tr><th style="width:96px">Revisi</th><th style="width:140px">Tanggal</th>
+        <th class="right" style="width:180px">Nilai Penawaran</th><th class="right" style="width:180px">Selisih</th>
+        <th style="width:120px">Status</th><th style="width:160px">Pembuat</th><th>Alasan</th></tr></thead>
+      <tbody>${DB.REVISI.map((r,i)=>`<tr>
+        <td><span class="cell-main mono">${esc(r.rev)}</span> ${i===DB.REVISI.length-1?'<span class="chip blue">berlaku</span>':''}</td>
+        <td>${dmy(r.tgl)}</td><td class="right num">${rp(r.nilai)}</td>
+        <td class="right num" style="color:var(--${r.selisih>0?'danger':r.selisih<0?'ok':'ink-3'})">${r.selisih?((r.selisih>0?'+':'')+nf(r.selisih)):'—'}</td>
+        <td>${statusBadge(r.status)}</td><td>${esc(r.oleh)}</td><td class="text-ink2">${esc(r.alasan)}</td></tr>`).join('')}
+      </tbody></table></div></div>`;
+}
+
+/* ---------- wiring ---------- */
+function wire(){
+  $$('[contenteditable]').forEach(el=>{
+    el.onblur = () => { DB.BOQ[+el.dataset.i].vol = parseFloat(el.textContent.replace(',','.'))||0; saveDB(); render(); };
+    el.onkeydown = e => { if(e.key==='Enter'){ e.preventDefault(); el.blur(); } };
+  });
+  $$('[data-vol]').forEach(b=>b.onclick=()=>{
+    const r = DB.BOQ[+b.dataset.vol];
+    openModal({title:'Rincian Volume', sub:r.uraian, size:'lg',
+      body:`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Nama Bagian</th>
+        <th class="right">Panjang</th><th class="right">Lebar</th><th class="right">Tinggi</th>
+        <th class="right">Jumlah</th><th class="right">Hasil</th></tr></thead><tbody>
+        <tr><td>Area utama</td><td class="right num">12,00</td><td class="right num">8,00</td><td class="right num">-</td><td class="right num">2</td><td class="right num">192,00</td></tr>
+        <tr><td>Koridor</td><td class="right num">18,00</td><td class="right num">2,40</td><td class="right num">-</td><td class="right num">3</td><td class="right num">129,60</td></tr>
+        <tr><td>Ruang rapat</td><td class="right num">7,00</td><td class="right num">5,20</td><td class="right num">-</td><td class="right num">2</td><td class="right num">72,80</td></tr>
+        <tr class="sub-total"><td colspan="5">Total Volume Item</td><td class="right num">394,40</td></tr>
+      </tbody></table></div>`,
+      footer:[{label:'Close'},{label:'Apply to Item', cls:'btn-primary', ic:'check', onClick:c=>{c();toast('Volume item diperbarui dari rincian.');}}]});
+  });
+  $$('[data-adj]').forEach(b=>b.onclick=()=>{
+    const r = DB.BOQ[+b.dataset.adj];
+    openModal({title:'Penyesuaian Harga Satuan', sub:r.uraian, size:'md',
+      body: formHTML([
+        {key:'lama', label:'Harga Satuan dari AHS', disabled:true},
+        {key:'baru', label:'Harga Satuan Disesuaikan (Rp)', type:'number', required:true},
+        {key:'alasan', label:'Alasan Penyesuaian', type:'textarea', required:true, full:true,
+         help:'Wajib diisi. Item yang disesuaikan diberi penanda kuning pada tabel.'}
+      ], {lama: rp(r.harga), baru: r.harga}),
+      footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(c,el)=>{
+        const o = readForm(el,[{key:'baru',type:'number'},{key:'alasan'}]);
+        if (!o.alasan){ toast('Alasan penyesuaian wajib diisi.','err'); return; }
+        r.harga=o.baru; r.adj=true; saveDB(); c(); render(); toast('Harga satuan berhasil disesuaikan.');
+      }}]});
+  });
+  if ($('#btn-disc')) $('#btn-disc').onclick = ()=>openModal({
+    title:'Give Discount', sub:'Dampak terhadap margin ditampilkan sebelum disimpan.', size:'md',
+    body: formHTML([
+      {key:'jenis', label:'Jenis Diskon', type:'select', options:['Persentase','Nilai Tetap'], required:true},
+      {key:'nilai', label:'Nilai Diskon', type:'number', required:true},
+      {key:'dampak', label:'Dampak terhadap Margin', type:'static', full:true},
+      {key:'alasan', label:'Alasan', type:'textarea', required:true, full:true}
+    ], {jenis:'Persentase', dampak:'—'}),
+    footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(c,el)=>{
+      const o = readForm(el,[{key:'jenis'},{key:'nilai',type:'number'},{key:'alasan'}]);
+      if (!o.alasan){ toast('Alasan diskon wajib diisi.','err'); return; }
+      P.disc = o.jenis==='Persentase' ? grandTotal()*o.nilai/100 : o.nilai;
+      saveDB(); c(); render(); toast('Diskon berhasil disimpan.');
+    }}],
+    onShown:el=>{
+      const i=$('[name="nilai"]',el), j=$('[name="jenis"]',el), o=$('[data-static="dampak"]',el);
+      const upd=()=>{ const v=Number(i.value)||0; const d=j.value==='Persentase'?grandTotal()*v/100:v;
+        o.textContent = d? `Nilai penawaran ${rp(finalVal())} → ${rp(Math.round((grandTotal()-d+(grandTotal()-d)*P.ppn)/P.bulat)*P.bulat)} · margin 13,0% → ${(13-(d/grandTotal()*100)).toFixed(1)}%` : '—'; };
+      i.oninput=upd; j.onchange=upd;
+    }
+  });
+  if ($('#btn-sim')) $('#btn-sim').onclick = ()=>openModal({
+    title:'Simulation', sub:'Geser penggeser untuk melihat dampak. Perubahan tidak tersimpan.', size:'lg',
+    body:`<div class="row g-3">
+      <div class="col-12"><label class="form-label">Margin (%) <b id="v1">15</b></label><input type="range" class="form-range" id="s1" min="5" max="30" value="15"></div>
+      <div class="col-12"><label class="form-label">Jasa Kontraktor (%) <b id="v2">10</b></label><input type="range" class="form-range" id="s2" min="0" max="20" value="10"></div>
+      <div class="col-12"><label class="form-label">Diskon (%) <b id="v3">0</b></label><input type="range" class="form-range" id="s3" min="0" max="15" value="0"></div>
+      <div class="col-12"><div class="kv total"><span>Nilai Penawaran</span><b id="simval">${rp(finalVal())}</b></div></div>
+    </div>`,
+    footer:[{label:'Close'}],
+    onShown:el=>{
+      const upd=()=>{
+        ['1','2','3'].forEach(n=>$('#v'+n,el).textContent=$('#s'+n,el).value);
+        const disc = grandTotal()*(Number($('#s3',el).value)/100);
+        const base = grandTotal()-disc;
+        $('#simval',el).textContent = rp(Math.round((base+base*P.ppn)/P.bulat)*P.bulat);
+      };
+      ['1','2','3'].forEach(n=>$('#s'+n,el).oninput=upd);
+    }
+  });
+  if ($('#btn-final')) $('#btn-final').onclick = ()=>openModal({
+    title:'Finalize Quotation', sub:'Tombol Finalize hanya aktif bila tidak ada temuan berjenis Menghalangi.', size:'lg',
+    body:`<div class="alert-box danger">${icon('alert',16)}<div><b>1 temuan menghalangi finalisasi</b><br>
+      Item 2.4 Credenza memakai harga satuan disesuaikan manual tanpa alasan tertulis.
+      <a href="#items" onclick="go('items')" style="color:inherit"><u>Buka baris bermasalah</u></a></div></div>
+      <div class="alert-box warn">${icon('alert',16)}<div><b>Peringatan</b><br>3 material pada AHS WD.2 berumur lebih dari 90 hari.</div></div>`,
+    footer:[{label:'Cancel'},{label:'Finalize', cls:'btn-primary', ic:'check', disabled:true}]
+  });
+  if ($('#btn-opt')) $('#btn-opt').onclick = ()=>openModal({
+    title:'Print Options', size:'md',
+    body: formHTML([
+      {key:'fmt', label:'Format Keluaran', type:'select', options:['PDF','Excel (XLSX)']},
+      {key:'rinci', label:'Tingkat Kerincian', type:'select', options:['Ringkas (per kelompok)','Rinci (per item)']},
+      {key:'opsi', label:'Penyertaan', type:'checks', full:true, options:['Syarat dan Ketentuan','Lampiran Spesifikasi','Gambar Kerja']},
+      {key:'pajak', label:'Penyajian Harga', type:'select', full:true, options:['Termasuk PPN','Belum Termasuk PPN']}
+    ], {opsi:['Syarat dan Ketentuan'], rinci:'Rinci (per item)'}),
+    footer:[{label:'Cancel'},{label:'Download', cls:'btn-primary', ic:'download', onClick:c=>{c();toast('Dokumen quotation berhasil dibentuk.');}}]
+  });
+  if ($('#btn-rev')) $('#btn-rev').onclick = ()=>openModal({
+    title:'Create Revision', size:'md',
+    body: formHTML([
+      {key:'kat', label:'Kategori Alasan', type:'select', required:true,
+       options:['Permintaan Client','Perubahan Volume','Pembaruan Harga','Koreksi Internal']},
+      {key:'ket', label:'Keterangan Alasan', type:'textarea', required:true, full:true},
+      {key:'harga', label:'Perlakuan Harga', type:'select', full:true,
+       options:['Pertahankan harga versi sebelumnya','Perbarui ke harga terkini'],
+       help:'Perkiraan dampak pembaruan harga: +Rp 28.450.000 (+1,6%).'}
+    ], {}),
+    footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(c,el)=>{
+      const o = readForm(el,[{key:'kat'},{key:'ket'},{key:'harga'}]);
+      if (!o.ket){ toast('Keterangan alasan wajib diisi.','err'); return; }
+      DB.REVISI.push({rev:'R'+DB.REVISI.length, tgl:today(), nilai:finalVal(), selisih:0, status:'Draft', oleh:DB.PROFILE.nama, alasan:o.ket});
+      saveDB(); c(); render(); toast('Revisi baru berhasil dibuat.');
+    }}]
+  });
+  if ($('#btn-cmp')) $('#btn-cmp').onclick = ()=>openModal({
+    title:'Compare Version', sub:'R1 dibandingkan dengan R2', size:'lg',
+    body:`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Item</th><th class="right">R1</th><th class="right">R2</th><th>Keterangan</th></tr></thead>
+      <tbody>
+        <tr style="background:var(--ok-soft)"><td>3.3 Wallpanel pilar / kolom</td><td class="right num">—</td><td class="right num">272.992.000</td><td>Item ditambahkan</td></tr>
+        <tr style="background:var(--danger-soft)"><td style="text-decoration:line-through">2.5 Meja rapat custom</td><td class="right num">86.400.000</td><td class="right num">—</td><td>Item dihapus</td></tr>
+        <tr style="background:var(--warn-soft)"><td>2.1 Wardrobe 240x60x320</td><td class="right num">75.240.000</td><td class="right num">80.529.700</td><td>Harga satuan berubah</td></tr>
+        <tr class="sub-total"><td>Nilai Penawaran</td><td class="right num">1.798.300.000</td><td class="right num">1.826.750.000</td><td>+28.450.000</td></tr>
+      </tbody></table></div>`,
+    footer:[{label:'Close'}]
+  });
+  if ($('#btn-item')) $('#btn-item').onclick = ()=>openModal({
+    title:'Add Item Pekerjaan', size:'lg',
+    body: formHTML([
+      {key:'grp', label:'Kelompok Pekerjaan', type:'select', required:true, options:()=>DB.BOQ.filter(r=>r.t==='grp').map(g=>g.uraian)},
+      {key:'kode', label:'Kode AHS', type:'select', required:true, options:()=>DB.AHS.map(a=>({v:a.kode,l:a.kode+' — '+a.nama}))},
+      {key:'uraian', label:'Uraian Pekerjaan', required:true, full:true},
+      {key:'sat', label:'Satuan', type:'select', options:['Unit','M2','M1']},
+      {key:'vol', label:'Volume', type:'number', required:true}
+    ], {vol:1}),
+    footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(c,el)=>{
+      const o = readForm(el,[{key:'grp'},{key:'kode'},{key:'uraian'},{key:'sat'},{key:'vol',type:'number'}]);
+      const a = DB.AHS.find(x=>x.kode===o.kode)||{hsp:0};
+      const idx = DB.BOQ.findIndex(r=>r.t==='sub' && lastGrp(DB.BOQ.indexOf(r))===o.grp);
+      DB.BOQ.splice(idx<0?DB.BOQ.length:idx, 0, {t:'item', no:'9.9', kode:o.kode, uraian:o.uraian, sat:o.sat, vol:o.vol, harga:a.hsp, adj:false});
+      saveDB(); c(); render(); toast('Item pekerjaan berhasil ditambahkan.');
+    }}]
+  });
+  const dz = $('#dz'), dzf = $('#dz-file');
+  const pickAtt = () => dzf && dzf.click();
+  if ($('#btn-upl')) $('#btn-upl').onclick = pickAtt;
+  if (dz){
+    dz.onclick = pickAtt;
+    dz.onkeydown = e => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); pickAtt(); } };
+    ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('over');}));
+    ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('over');}));
+    dz.addEventListener('drop', e => showAtt(e.dataTransfer.files));
+  }
+  if (dzf) dzf.onchange = () => showAtt(dzf.files);
+  function showAtt(fs){
+    if (!fs || !fs.length) return;
+    const el = $('#dz-name'); if (!el) return;
+    el.hidden = false;
+    el.innerHTML = `${icon('paperclip',14)} <b>${esc(fs[0].name)}</b> <span>${fs.length>1?'+'+(fs.length-1)+' berkas lain':''}</span>`;
+    toast(fs.length+' berkas siap diunggah ke Google Drive perusahaan.','info');
+  }
+}
+if ($('#btn-save')) $('#btn-save').onclick = ()=>{ prj.nilai = finalVal(); saveDB(); toast('Project '+prj.no+' berhasil disimpan.'); };
+render();
+window.addEventListener('hashchange', ()=>{ cur = location.hash.replace('#','')||'info'; render(); });
+
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="dashboard" data-title="Dashboard">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone">
+<div id="stats" class="row g-3"></div>
+<div class="row g-3">
+  <div class="col-12 col-xl-8"><div id="chart"></div><div id="shortcut"></div></div>
+  <div class="col-12 col-xl-4"><div id="warn"></div><div id="act"></div></div>
+</div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+const S = [['Draft','off','folder'],['Sent','info','send'],['Won','ok','check'],['Lost','danger','x']];
+$('#stats').innerHTML = S.map(([s,c,ic])=>{
+  const rows = DB.PROJECT.filter(p=>p.status===s), val = rows.reduce((a,b)=>a+b.nilai,0);
+  return `<div class="col-6 col-xl-3"><div class="stat">
+    <div class="lbl"><span class="ic" style="background:var(--${c==='off'?'line-soft':c+'-soft'});color:var(--${c==='off'?'ink-2':c})">${icon(ic,15)}</span> Project ${s}</div>
+    <div class="val">${rows.length}</div><div class="sub">${rp(val)}</div></div></div>`;
+}).join('');
+
+/* grafik nilai penawaran 12 bulan terakhir */
+const bulan = ['Okt','Nov','Des','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep'];
+const data  = [820,1240,960,1480,1120,1760,1340,2080,1520,2260,1890,2940];
+const won   = [410,760,520,900,640,1180,700,1290,860,1410,980,1620];
+const max = Math.max(...data);
+$('#chart').innerHTML = `
+<div class="card"><div class="card-tb"><div><h2>Nilai Penawaran 12 Bulan Terakhir</h2>
+  <p>Dalam juta rupiah. Batang gelap = penawaran dimenangkan (Won).</p></div>
+  <div class="acts"><button class="btn btn-ghost btn-sm" onclick="toast('Grafik diekspor ke gambar.','info')">${icon('download',14)} Export</button></div></div>
+  <div class="card-body">
+    <div class="d-flex align-items-end gap-2" style="height:210px">
+      ${data.map((v,i)=>`<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px" title="${bulan[i]}: Rp ${nf(v)} juta">
+        <div style="width:100%;position:relative;height:${v/max*160}px;background:var(--primary-soft);border-radius:5px 5px 0 0">
+          <div style="position:absolute;bottom:0;left:0;right:0;height:${won[i]/v*100}%;background:var(--primary);border-radius:0 0 0 0"></div>
+        </div>
+        <span class="text-ink3" style="font-size:10.5px">${bulan[i]}</span></div>`).join('')}
+    </div>
+  </div></div>`;
+
+$('#warn').innerHTML = `
+<div class="card"><div class="card-tb"><div><h2>Peringatan</h2><p>Setiap baris menuju halaman terkait.</p></div></div>
+  <div class="card-body">
+    ${[['warn','alert','3 material harga kedaluwarsa','Belum diperbarui lebih dari 90 hari.','material-price.html'],
+       ['danger','alert','1 material belum memiliki harga','Tidak dapat dipilih pada breakdown.','material-price.html'],
+       ['warn','refresh','2 AHS perlu ditinjau ulang','Harga komponen penyusun berubah.','unit-price-analysis.html'],
+       ['info','clock','1 penawaran mendekati masa berakhir','PRJ-2026-010 tersisa 3 hari.','project.html']]
+      .map(w=>`<a class="alert-box ${w[0]}" href="${w[4]}" style="text-decoration:none">
+        ${icon(w[1],16)}<div><b>${w[2]}</b><br><span style="opacity:.85">${w[3]}</span></div></a>`).join('')}
+  </div></div>`;
+
+$('#act').innerHTML = `
+<div class="card"><div class="card-tb"><div><h2>Aktivitas Terakhir</h2></div></div>
+  <div class="card-body"><div class="timeline">
+    ${DB.AUDIT.slice(0,6).map(a=>`<div class="ti"><p>${esc(a.modul)} &mdash; ${esc(a.ket)}</p>
+      <span>${esc(a.waktu)} &middot; ${esc(a.user)}</span></div>`).join('')}
+  </div></div></div>`;
+
+const SC = [
+  ['Buat Project Baru','project.html','folder'],
+  ['Susun BOQ','project-detail.html','list'],
+  ['Analisa Harga Satuan','unit-price-analysis.html','calc'],
+  ['Material & Price','material-price.html','box'],
+  ['Daftar Harga Satuan','unit-price-list.html','tag']
+];
+$('#shortcut').innerHTML = `
+<div class="card"><div class="card-tb"><div><h2>Pintasan</h2><p>Halaman yang paling sering dipakai role ${esc(curRole())}.</p></div></div>
+  <div class="card-body d-flex flex-wrap gap-2">
+    ${SC.map(s=>`<a class="btn btn-ghost" href="${s[1]}">${icon(s[2],15)} ${s[0]}</a>`).join('')}
+  </div></div>`;
+
+</script>
+</body>
+</html>

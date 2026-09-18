@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project & Quotation &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="project" data-title="Project & Quotation">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"><div id="stats" class="row g-3 mb-1"></div><div id="zone-tbl"></div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+const S = ['Draft','Sent','Won','Lost'];
+$('#stats').innerHTML = S.map(s=>{
+  const rows = DB.PROJECT.filter(p=>p.status===s);
+  const val = rows.reduce((a,b)=>a+b.nilai,0);
+  const col = {Draft:'off',Sent:'info',Won:'ok',Lost:'danger'}[s];
+  return `<div class="col-6 col-lg-3"><div class="stat">
+    <div class="lbl"><span class="ic" style="background:var(--${col==='off'?'line-soft':col+'-soft'});color:var(--${col==='off'?'ink-2':col})">${icon('folder',15)}</span> ${s}</div>
+    <div class="val">${rows.length} <span class="text-ink3" style="font-size:13px">project</span></div>
+    <div class="sub">${rp(val)}</div></div></div>`;
+}).join('');
+
+renderTable('#zone-tbl', {
+  key:'project', perm:'project', entity:'Project', idKey:'no', formSize:'lg',
+  title:'Project & Quotation', desc:'Satu project dikerjakan dalam satu halaman bertab: Information, Work Items, Recap, Quotation, dan Revision History.',
+  rows:()=>DB.PROJECT,
+  toolbar:[TB.add('Project'), TB.download()],
+  columns:[
+    {key:'no', label:'Nomor Project', width:'150px', render:r=>`<span class="cell-main mono">${esc(r.no)}</span>`},
+    {key:'nama', label:'Nama Project', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+    {key:'client', label:'Client', width:'210px', filter:'select', options:()=>DB.CLIENT.map(c=>c.kode),
+     render:r=>(DB.CLIENT.find(c=>c.kode===r.client)||{}).nama||r.client},
+    {key:'lokasi', label:'Lokasi', width:'120px'},
+    {key:'tgl', label:'Tgl Penawaran', width:'140px', filter:false, render:r=>dmy(r.tgl)},
+    {key:'nilai', label:'Nilai Penawaran', width:'175px', align:'right', filter:false, render:r=>money(r.nilai)},
+    {key:'est', label:'Estimator', width:'150px', filter:'select', options:()=>[...new Set(DB.PROJECT.map(p=>p.est))]},
+    {key:'status', label:'Status', width:'118px', filter:'select', options:S, render:r=>statusBadge(r.status)}
+  ],
+  actions:[{k:'open'},'view','copy','print','delete'],
+  onAction:(k,r)=>{ if(k==='open'){ location.href='project-detail.html?no='+r.no; return true; } return false; },
+  onRowClick:r=>location.href='project-detail.html?no='+r.no,
+  form:[
+    {key:'no', label:'Nomor Project', required:true, disabled:true},
+    {key:'client', label:'Client', type:'select', required:true, options:()=>DB.CLIENT.filter(c=>c.status==='Aktif').map(c=>({v:c.kode,l:c.nama}))},
+    {key:'nama', label:'Nama Project', required:true, full:true},
+    {key:'lokasi', label:'Lokasi', required:true},
+    {key:'jenis', label:'Jenis Bangunan', type:'select', options:()=>DB.BUILDING.map(b=>b.nama)},
+    {key:'tgl', label:'Tanggal Penawaran', type:'date', required:true},
+    {key:'valid', label:'Masa Berlaku (hari)', type:'number', disabled:!can('project','discount'),
+     help: can('project','discount')?'':'Parameter terkunci untuk role '+curRole()+'.'},
+    {key:'est', label:'Estimator Penanggung Jawab', type:'select', required:true, options:()=>DB.USERS.filter(u=>u.roles.includes('EST')).map(u=>u.nama)},
+    {key:'status', label:'Status', type:'select', options:S}
+  ],
+  formDefaults:()=>({no:'PRJ-2026-'+String(DB.PROJECT.length+1).padStart(3,'0'), status:'Draft', tgl:today(), valid:30, nilai:0}),
+  detail:r=>detailHTML([['Nomor',r.no],['Nama Project',r.nama],['Client',(DB.CLIENT.find(c=>c.kode===r.client)||{}).nama],
+    ['Lokasi',r.lokasi],['Tanggal Penawaran',dmy(r.tgl)],['Nilai Penawaran',money(r.nilai)],['Estimator',r.est],['Status',statusBadge(r.status)]])
+});
+
+</script>
+</body>
+</html>

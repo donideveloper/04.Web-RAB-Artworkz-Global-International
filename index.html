@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body class="login-page">
+
+<div class="login">
+  <div class="login-brand">
+    <div class="d-flex align-items-center gap-2" style="font-weight:700;font-size:16px;letter-spacing:.2px">
+      <span id="brand-ic"></span> Web RAB
+    </div>
+    <div class="login-hero">
+      <h2>Rencana Anggaran Biaya untuk Pekerjaan Finishing Interior</h2>
+      <p>Susun BOQ, analisa harga satuan, dan penawaran proyek dalam satu alur kerja yang terkontrol.</p>
+      <div id="points"></div>
+    </div>
+    <div style="font-size:12.5px;color:var(--ink-3)">Prototipe UI &mdash; mengacu pada FSD Web RAB v1.2</div>
+  </div>
+
+  <div class="login-form">
+    <div class="login-box">
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:4px">Masuk ke akun Anda</h1>
+      <p style="color:var(--ink-2);font-size:13.4px;margin-bottom:20px">Gunakan akun yang diberikan administrator.</p>
+
+      <div id="err" class="alert-box danger d-none" style="margin-bottom:14px"></div>
+
+      <form id="frm" autocomplete="off" novalidate>
+        <div class="fld">
+          <label class="form-label" for="u">Username</label>
+          <input type="text" class="form-control" id="u" placeholder="mis. dewi.lestari" value="dewi.lestari">
+        </div>
+        <div class="fld" style="margin-top:12px">
+          <label class="form-label" for="p">Password</label>
+          <div class="pwd-wrap">
+            <input type="password" class="form-control" id="p" placeholder="Masukkan password" value="rab12345">
+            <button type="button" class="icon-btn pwd-eye" id="eye" aria-label="Lihat password"></button>
+          </div>
+        </div>
+        <div class="fld" style="margin-top:12px">
+          <label class="form-label" for="r">Masuk sebagai (demo role)</label>
+          <select class="form-select" id="r"></select>
+          <span class="form-hint">Pilihan ini hanya untuk prototipe, agar perbedaan menu dan tombol antar role dapat dicoba.</span>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between" style="margin:16px 0 18px">
+          <div class="form-check m-0">
+            <input class="form-check-input" type="checkbox" id="rem" checked>
+            <label class="form-check-label" for="rem" style="font-size:13.3px">Ingat saya</label>
+          </div>
+          <a href="#" id="forgot" style="font-size:13.3px">Lupa password?</a>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100" id="btn-login">Login</button>
+      </form>
+
+      <div class="login-foot">
+        <div style="font-size:12.6px;color:var(--ink-3);margin-top:18px">
+          Akun contoh: <span class="mono">andi.wijaya</span> (ADM), <span class="mono">maria.santoso</span> (MGR),
+          <span class="mono">dewi.lestari</span> (EST), <span class="mono">rina.purnama</span> (PRC).
+          Pada prototipe ini password apa pun diterima.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="icon-btn theme-float" id="theme" aria-label="Ganti tema"></button>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script>
+'use strict';
+loadDB();
+
+document.getElementById('brand-ic').innerHTML = icon('calc', 20);
+
+const PTS = [
+  ['layers', 'Master material, upah, dan analisa harga satuan terpusat'],
+  ['calc',   'BOQ bertingkat dengan rekapitulasi dan struktur biaya otomatis'],
+  ['file',   'Quotation, revisi berversi, dan jejak audit setiap perubahan']
+];
+document.getElementById('points').innerHTML = PTS.map(p =>
+  `<div class="login-point"><span class="pt-ic">${icon(p[0], 16)}</span><div>${esc(p[1])}</div></div>`).join('');
+
+/* role pilihan demo */
+const sel = document.getElementById('r');
+sel.innerHTML = DB.ROLES.map(r => `<option value="${r.kode}">${esc(r.kode)} &mdash; ${esc(r.nama)}</option>`).join('');
+sel.value = 'EST';
+
+/* username -> role mengikuti data contoh */
+const uEl = document.getElementById('u');
+uEl.addEventListener('change', () => {
+  const u = DB.USERS.find(x => x.username.toLowerCase() === uEl.value.trim().toLowerCase());
+  if (u && u.roles.length) sel.value = u.roles[0];
+});
+
+/* tombol mata */
+const pEl = document.getElementById('p'), eye = document.getElementById('eye');
+const drawEye = () => eye.innerHTML = icon(pEl.type === 'password' ? 'eye' : 'lock', 16);
+drawEye();
+eye.onclick = () => { pEl.type = pEl.type === 'password' ? 'text' : 'password'; drawEye(); };
+
+/* tema */
+const th = document.getElementById('theme');
+const drawTheme = () => th.innerHTML = icon(document.documentElement.getAttribute('data-theme') === 'dark' ? 'sun' : 'moon', 17);
+drawTheme();
+th.onclick = () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (dark) document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', 'dark');
+  try { localStorage.setItem('rab_theme', dark ? 'light' : 'dark'); } catch (e) {}
+  drawTheme();
+};
+
+document.getElementById('forgot').onclick = e => {
+  e.preventDefault();
+  openModal({ title: 'Lupa Password', size: 'sm',
+    body: `<div class="alert-box warn">${icon('info', 17)}<div>Silakan hubungi administrator sistem untuk pengaturan ulang password. Sesuai FSD, reset password hanya dapat dilakukan melalui menu <b>User</b> oleh role Administrator.</div></div>`,
+    footer: [{ label: 'Tutup' }] });
+};
+
+/* submit */
+const box = document.querySelector('.login-box'), err = document.getElementById('err');
+function fail(msg){
+  err.classList.remove('d-none');
+  err.innerHTML = `${icon('alert', 17)}<div>${esc(msg)}</div>`;
+  box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+}
+document.getElementById('frm').addEventListener('submit', e => {
+  e.preventDefault();
+  const u = uEl.value.trim(), p = pEl.value;
+  if (!u || !p) return fail('Username dan password wajib diisi.');
+  const acc = DB.USERS.find(x => x.username.toLowerCase() === u.toLowerCase());
+  if (acc && acc.status === 'Terkunci') return fail('Akun terkunci karena percobaan login gagal berulang. Hubungi administrator.');
+  if (acc && acc.status === 'Nonaktif') return fail('Akun tidak aktif. Hubungi administrator.');
+
+  const role = sel.value;
+  try {
+    sessionStorage.setItem('rab_session', '1');
+    sessionStorage.setItem('rab_role', role);
+    sessionStorage.setItem('rab_user', acc ? acc.nama : u);
+    DB.PROFILE.nama = acc ? acc.nama : u;
+    DB.PROFILE.username = acc ? acc.username : u;
+    DB.PROFILE.role = role;
+    saveDB();
+  } catch (x) {}
+  const b = document.getElementById('btn-login');
+  b.disabled = true; b.textContent = 'Memuat...';
+  setTimeout(() => location.href = 'dashboard.html', 300);
+});
+</script>
+</body>
+</html>

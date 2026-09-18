@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Category, Type & Specification &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="reference-category" data-title="Category, Type & Specification">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone">
+<div id="rolenote"></div>
+<div class="tabs" id="tabs"></div>
+<div id="tabbody" style="padding-top:16px">
+  <div id="c-cat" hidden></div>
+  <div id="c-typ" hidden></div>
+  <div id="c-spc" hidden></div>
+</div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+$('#rolenote').innerHTML = roleNote('Tiga tingkat data ditampilkan pada tab terpisah: <b>Category</b> &rarr; <b>Type</b> &rarr; <b>Specification</b>. Memilih baris Category lalu menekan tab Type akan menampilkan Type milik category tersebut; begitu pula Type &rarr; Specification (FSD &mdash; Modul Master Data Referensi).');
+let selCat = DB.CATEGORY[0].kode, selTyp = null;
+
+/* ---------- tab ---------- */
+const TABS = [['cat','Category'],['typ','Type'],['spc','Specification']];
+let cur = (location.hash.replace('#','') || 'cat');
+if (!TABS.some(t=>t[0]===cur)) cur = 'cat';
+function go(k){
+  cur = k; location.hash = k;
+  $('#tabs').innerHTML = TABS.map(([v,t])=>{
+    const n = v==='cat' ? DB.CATEGORY.length
+            : v==='typ' ? DB.TYPE.filter(x=>x.kategori===selCat).length
+            : (selTyp ? DB.SPEC.filter(x=>x.type===selTyp).length : 0);
+    return `<a href="#${v}" class="${v===cur?'active':''}" data-t="${v}">${t} <span class="tab-n">${n}</span></a>`;
+  }).join('');
+  $$('[data-t]').forEach(a=>a.onclick=e=>{ e.preventDefault(); go(a.dataset.t); });
+  ['cat','typ','spc'].forEach(v => $('#c-'+v).hidden = (v!==cur));
+  if (cur==='cat') drawCat(); else if (cur==='typ') drawTyp(); else drawSpc();
+}
+
+function drawCat(){
+  renderTable('#c-cat', {
+    key:'cat', perm:'reference', entity:'Category', idKey:'kode',
+    title:'Category', desc:'Kelompok besar material.',
+    rows:()=>DB.CATEGORY,
+    toolbar:[TB.add('Category'), TB.download()],
+    columns:[
+      {key:'kode', label:'Code', width:'74px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+      {key:'nama', label:'Category Name', render:r=>`<div class="cell-main">${esc(r.nama)}</div><span class="cell-sub">${r.jml_type} type &middot; ${r.jml_mat} material</span>`},
+      {key:'status', label:'Status', width:'104px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
+    ],
+    form:[
+      {key:'kode', label:'Kode Category', required:true, help:'3 huruf kapital, contoh ACP.',
+       rule:v=>/^[A-Z]{2,4}$/.test(v)?'':'Kode hanya boleh 2-4 huruf kapital.'},
+      {key:'nama', label:'Nama Category', required:true, full:true},
+      {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+    ],
+    formDefaults:()=>({status:'Aktif', jml_type:0, jml_mat:0}),
+    actions:['view','edit','delete'],
+    detail:r=>detailHTML([['Kode',r.kode],['Nama',r.nama],['Jumlah Type',r.jml_type],['Jumlah Material',r.jml_mat],['Status',statusBadge(r.status)]]),
+    rowClass:r=>r.kode===selCat?'selected':'',
+    onRowClick:r=>{ selCat=r.kode; selTyp=null; go('typ'); toast('Menampilkan Type untuk category '+r.kode+'.','info'); }
+  });
+}
+function drawTyp(){
+  renderTable('#c-typ', {
+    key:'typ', perm:'reference', entity:'Type', idKey:'kode',
+    title:'Type', desc:'Turunan dari Category '+selCat+'. Pilih baris lain pada tab Category untuk mengganti.',
+    rows:()=>DB.TYPE.filter(t=>t.kategori===selCat),
+    toolbar:[TB.add('Type')],
+    columns:[
+      {key:'kode', label:'Code', width:'86px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+      {key:'nama', label:'Type Name', render:r=>`<div class="cell-main">${esc(r.nama)}</div><span class="cell-sub">${r.jml_spec} spesifikasi</span>`},
+      {key:'status', label:'Status', width:'104px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
+    ],
+    form:[
+      {key:'kategori', label:'Category', type:'select', options:()=>DB.CATEGORY.map(c=>({v:c.kode,l:c.kode+' — '+c.nama})), required:true},
+      {key:'kode', label:'Kode Type', required:true, help:'Format <kategori>.<nn>, contoh ACP.01.'},
+      {key:'nama', label:'Nama Type', required:true, full:true},
+      {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+    ],
+    formDefaults:()=>({kategori:selCat, status:'Aktif', jml_spec:0}),
+    actions:['view','edit','delete'],
+    detail:r=>detailHTML([['Kode',r.kode],['Category',r.kategori],['Nama',r.nama],['Status',statusBadge(r.status)]]),
+    rowClass:r=>r.kode===selTyp?'selected':'',
+    onRowClick:r=>{ selTyp=r.kode; go('spc'); toast('Menampilkan Specification untuk type '+r.kode+'.','info'); }
+  });
+}
+function drawSpc(){
+  renderTable('#c-spc', {
+    key:'spc', perm:'reference', entity:'Specification', idKey:'kode',
+    title:'Specification', desc: selTyp?('Turunan dari Type '+selTyp+'.'):'Pilih salah satu baris pada tab Type terlebih dahulu.',
+    rows:()=>selTyp?DB.SPEC.filter(s=>s.type===selTyp):[],
+    toolbar:[TB.add('Specification')],
+    columns:[
+      {key:'kode', label:'Code', width:'74px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+      {key:'nama', label:'Specification', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+      {key:'status', label:'Status', width:'104px', filter:'select', options:['Aktif','Nonaktif'], render:r=>statusBadge(r.status)}
+    ],
+    form:[
+      {key:'kode', label:'Kode Spec', required:true, help:'2 digit angka, contoh 01.'},
+      {key:'nama', label:'Nama Spesifikasi', required:true, full:true},
+      {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif']}
+    ],
+    formDefaults:()=>({type:selTyp, status:'Aktif'}),
+    actions:['view','edit','delete'],
+    detail:r=>detailHTML([['Kode',r.kode],['Type',r.type],['Nama',r.nama],['Status',statusBadge(r.status)]])
+  });
+}
+go(cur);
+
+</script>
+</body>
+</html>

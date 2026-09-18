@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setting &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="setting" data-title="Setting">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"><div id="zone-tbl"></div>
+<div class="row g-3">
+  <div class="col-12 col-lg-6"><div class="card"><div class="card-tb"><div><h2>Identitas Perusahaan</h2><p>Dicetak pada kepala surat quotation.</p></div></div>
+    <div class="card-body" id="company"></div></div></div>
+  <div class="col-12 col-lg-6"><div class="card"><div class="card-tb"><div><h2>Format Penomoran Dokumen</h2><p>Pratinjau terbentuk langsung saat pola disunting.</p></div></div>
+    <div class="card-body" id="numbering"></div></div></div>
+</div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+const cfg = {
+  key:'setting', perm:'setting', entity:'Setting', idKey:'kode',
+  title:'Master Data Setting', desc:'Parameter sistem berlaku global. Perubahan wajib menyertakan alasan dan tercatat pada audit trail.',
+  rows:()=>DB.SETTING,
+  toolbar:[TB.download()],
+  columns:[
+    {key:'kode', label:'Kode', width:'104px', render:r=>`<span class="cell-main mono">${esc(r.kode)}</span>`},
+    {key:'kat',  label:'Kategori', width:'140px', filter:'select', options:['Perhitungan','Dokumen','Keamanan','Sistem'],
+     render:r=>`<span class="bdg ${({Perhitungan:'blue',Dokumen:'info',Keamanan:'warn',Sistem:'off'})[r.kat]}">${esc(r.kat)}</span>`},
+    {key:'nama', label:'Nama Setting', render:r=>`<div class="cell-main">${esc(r.nama)}</div>`},
+    {key:'nilai',label:'Nilai Berlaku', width:'210px', align:'right', render:r=>`<span class="num cell-main">${esc(r.nilai)}</span>`},
+    {key:'sat',  label:'Satuan', width:'92px', filter:false},
+    {key:'sejak',label:'Berlaku Sejak', width:'130px', filter:false, render:r=>dmy(r.sejak)}
+  ],
+  actions:['edit','history'],
+  onAction:(k,r)=>{
+    if (k!=='edit') return false;
+    if (!can('setting','edit')){ toast('Role '+curRole()+' tidak berhak mengubah setting.','err'); return true; }
+    openModal({
+      title:'Ubah Nilai Setting', sub:r.kode+' — '+r.nama, size:'md',
+      body: formHTML([
+        {key:'lama', label:'Nilai Lama', disabled:true},
+        {key:'nilai',label:'Nilai Baru', required:true},
+        {key:'sejak',label:'Berlaku Mulai', type:'date', required:true},
+        {key:'alasan',label:'Alasan Perubahan', type:'textarea', required:true, full:true,
+         help:'Wajib diisi. Alasan tercatat pada audit trail.'}
+      ], {lama:r.nilai+' '+r.sat, nilai:r.nilai, sejak:today()}),
+      footer:[{label:'Cancel'},{label:'Save', cls:'btn-primary', ic:'save', onClick:(close,el)=>{
+        const o = readForm(el, [{key:'nilai'},{key:'sejak'},{key:'alasan'}]);
+        if (!o.nilai || !o.alasan){ toast('Nilai baru dan alasan perubahan wajib diisi.','err'); return; }
+        r.nilai=o.nilai; r.sejak=o.sejak; saveDB(); drawTable(cfg); close();
+        toast('Nilai setting berhasil disimpan.');
+      }}]
+    });
+    return true;
+  }
+};
+renderTable('#zone-tbl', cfg);
+
+$('#company').innerHTML = formHTML([
+  {key:'nm', label:'Nama Perusahaan'}, {key:'telp', label:'Telepon'},
+  {key:'alamat', label:'Alamat', type:'textarea', full:true},
+  {key:'ttd', label:'Nama Penanda Tangan'}, {key:'jab', label:'Jabatan Penanda Tangan'}
+], {nm:'PT Artworkz Global Internasional', telp:'031-8291230',
+    alamat:'Jl. Raya Darmo Permai III No. 21, Surabaya 60226', ttd:'Hendra Kusuma', jab:'Direktur'})
+  + `<button class="btn btn-primary mt-3" onclick="toast('Identitas perusahaan berhasil disimpan.')">${icon('save',15)} Save</button>`;
+
+$('#numbering').innerHTML = `
+  <label class="form-label">Pola Nomor Quotation</label>
+  <input class="form-control mono" id="pola" value="{NNN}/QUO/INT/AGI/{RM}/{YY}">
+  <span class="form-hint">{NNN} nomor urut &middot; {RM} bulan romawi &middot; {YY} dua digit tahun</span>
+  <div class="code-preview mt-3" id="prev">013/QUO/INT/AGI/IX/26</div>
+  <label class="form-label mt-3">Syarat dan Ketentuan Baku &mdash; versi berlaku</label>
+  <div class="d-flex gap-2 align-items-center">
+    <select class="form-select"><option>v2.0 — berlaku sejak 01/03/2026</option><option>v1.0 — 01/01/2026</option></select>
+    <button class="btn btn-ghost" onclick="toast('Penyunting syarat dan ketentuan dibuka.','info')">${icon('edit',15)} Edit</button>
+  </div>`;
+$('#pola').oninput = e => {
+  $('#prev').textContent = e.target.value.replace('{NNN}','013').replace('{RM}','IX').replace('{YY}','26');
+};
+
+</script>
+</body>
+</html>

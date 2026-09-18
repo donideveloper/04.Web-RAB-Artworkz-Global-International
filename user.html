@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>User &mdash; Web RAB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+<link rel="stylesheet" href="assets/css/rab.css">
+<script>(function(){try{var t=localStorage.getItem('rab_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+</head>
+<body data-page="user" data-title="User">
+
+<div class="app">
+  <div class="side-backdrop" id="side-backdrop"></div>
+  <aside class="side" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content"><div id="zone"><div id="zone-tbl"></div></div></main>
+  </div>
+</div>
+
+<script src="assets/vendor/bootstrap.bundle.min.js"></script>
+<script src="assets/js/rab-data.js"></script>
+<script src="assets/js/rab-core.js"></script>
+<script src="assets/js/rab-layout.js"></script>
+<script>
+'use strict';
+
+$('#zone').insertAdjacentHTML('afterbegin', can('user','edit')
+  ? roleNote('Role <b>'+curRole()+'</b>: dapat menambah pengguna, mengatur role melalui checkbox pada form, reset password, dan membuka kunci akun.')
+  : roleNote('Role <b>'+curRole()+'</b>: daftar pengguna hanya dapat dilihat. Tombol Add, Edit, Delete, dan Reset Password disembunyikan.'));
+
+renderTable('#zone-tbl', {
+  key:'user', perm:'user', entity:'User', idKey:'id', formSize:'lg',
+  title:'User', desc:'Pemetaan user ke role dilakukan melalui checkbox Role pada form.',
+  rows:()=>DB.USERS,
+  toolbar:[TB.add('User'), TB.upload('user'), TB.download()],
+  columns:[
+    {key:'nama', label:'Nama Pengguna', width:'230px', render:r=>`<div class="d-flex align-items-center gap-2">
+      <span class="avatar">${esc(r.nama.split(' ').map(w=>w[0]).slice(0,2).join(''))}</span>
+      <span><span class="cell-main">${esc(r.nama)}</span><span class="cell-sub">${esc(r.jabatan)}</span></span></div>`},
+    {key:'username', label:'Username', width:'150px', render:r=>`<code>${esc(r.username)}</code>`},
+    {key:'email', label:'Email', width:'220px'},
+    {key:'roles', label:'Role', filterValue:r=>r.roles.join(' '), sortValue:r=>r.roles.length,
+     render:r=>chips(r.roles,'blue'), exportValue:r=>r.roles.join(', ')},
+    {key:'last', label:'Login Terakhir', width:'150px', filter:false, render:r=>`<span class="text-ink3">${esc(r.last)}</span>`},
+    {key:'status', label:'Status', width:'120px', filter:'select', options:['Aktif','Nonaktif','Terkunci'], render:r=>statusBadge(r.status)}
+  ],
+  actions:r=> r.status==='Terkunci' ? ['view','edit',{k:'unlock'},'delete'] : ['view','edit','delete'],
+  onAction:(k,r)=>{
+    if (k!=='unlock') return false;
+    confirmModal({title:'Unlock Account', danger:false, okLabel:'Yes, Continue',
+      text:`Buka kunci akun <b>${esc(r.username)}</b>? Penghitung percobaan login gagal akan direset.`,
+      onOk:()=>{ r.status='Aktif'; saveDB(); location.reload(); }});
+    return true;
+  },
+  form:[
+    {key:'nama', label:'Nama Lengkap', required:true},
+    {key:'username', label:'Username', required:true,
+     rule:v=>/^[a-z0-9.]+$/.test(v)?'':'Username hanya boleh memuat huruf kecil, angka, dan tanda titik.'},
+    {key:'email', label:'Email', type:'email', required:true,
+     rule:v=>/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v)?'':'Format email tidak sesuai.'},
+    {key:'jabatan', label:'Jabatan', required:true},
+    {key:'roles', label:'Role Pengguna', type:'checks', required:true, full:true,
+     options:()=>DB.ROLES.map(r=>({v:r.kode, l:r.kode+' — '+r.nama}))},
+    {key:'status', label:'Status', type:'select', options:['Aktif','Nonaktif','Terkunci']},
+    {key:'foto', label:'Foto Profil', type:'file'}
+  ],
+  formDefaults:()=>({status:'Aktif', roles:['EST'], id:nextCode('U', DB.USERS,'id'), last:'-'}),
+  detail:r=>detailHTML([['Nama',r.nama],['Username',`<code>${esc(r.username)}</code>`],['Email',r.email],
+    ['Jabatan',r.jabatan],['Role',chips(r.roles,'blue')],['Login Terakhir',r.last],['Status',statusBadge(r.status)]])
+});
+
+</script>
+</body>
+</html>
