@@ -469,3 +469,11 @@ table.dt.sm tr.sub-total td{background:var(--line-soft);font-weight:700;color:va
 /* rev-6 poin 17 (P-53) — status alur yang hanya dibaca, tidak dapat diketik */
 .stat-lock{display:flex;align-items:center;gap:8px;min-height:38px;padding:6px 12px;
   border:1px dashed var(--line);border-radius:var(--r-input);background:var(--line-soft)}
+
+/* rev-6 poin 24 (P-60) — kolom kode menjadi tautan pembuka jendela Detail */
+a.cell-link{color:inherit;text-decoration:none;display:inline-block;border-radius:5px}
+a.cell-link .cell-main{color:var(--primary);text-decoration:underline;
+  text-decoration-color:color-mix(in srgb,var(--primary) 35%,transparent);text-underline-offset:2px}
+a.cell-link:hover .cell-main{text-decoration-color:var(--primary)}
+a.cell-link:hover .mono{background:var(--primary-soft)}
+a.cell-link:focus-visible{outline:none;box-shadow:var(--ring)}

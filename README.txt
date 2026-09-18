@@ -277,6 +277,36 @@
          Keterangan pada deskripsi tabel dan bantuan field Status Alur ikut
          disesuaikan agar tidak lagi menyebut "tombol Submit pada daftar".
 
+   P-59  Jarak antara kartu ringkasan dengan isi di bawahnya diperbaiki pada
+         Dashboard dan Project & Quotation. Penyebabnya gutter vertikal
+         Bootstrap: setiap .row memiliki margin-top negatif sebesar gutter-nya
+         (16 px pada g-3), sehingga jarak yang diberikan baris di atasnya ikut
+         termakan dan kedua baris tampak menempel. Kelas mb-4 dipasang pada
+         baris kartu sehingga jarak bersihnya menjadi 24 px, sama pada kedua
+         halaman.
+
+   P-60  Ikon View dihapus dari kolom Actions; fungsinya dipindahkan menjadi
+         TAUTAN pada kolom kode di seluruh menu yang memiliki tabel data.
+         Alasannya: kode adalah hal pertama yang dibaca dan ditunjuk pengguna,
+         sehingga lebih wajar menjadi jalan masuk ke keterangan barisnya
+         daripada satu ikon mata di ujung kanan layar. Kolom Actions pun
+         menyusut satu ikon di semua menu.
+         Dikerjakan terpusat pada assets/js/rab-core.js sehingga berlaku
+         serentak tanpa menyentuh berkas halaman satu per satu:
+         a. linkColumn(cfg) menentukan kolom yang dijadikan tautan, yaitu kolom
+            kunci (cfg.idKey); bila kunci itu tidak muncul sebagai kolom,
+            dipakai kolom pertama - contohnya menu User yang kuncinya ID
+            sedangkan kolomnya Nama Pengguna.
+         b. drawTable membungkus isi kolom itu dengan tautan yang membuka
+            jendela Detail.
+         c. rowActions melepas aksi 'view' pada menu yang sudah punya tautan.
+            Menu yang memang tidak memiliki jendela Detail (contoh Setting)
+            tidak berubah sama sekali.
+         Terpengaruh 20 tabel: Material, Upah Pekerja, Material Breakdown,
+         Unit Price Analysis, Unit Price List, Project & Quotation, seluruh
+         sembilan menu Reference termasuk ketiga tab pada Kategori, Permission,
+         Role, User, dan Audit Trail.
+
 0A. PERUBAHAN PADA REVISI 5 (feedback putaran 2 & 3 — poin P-20 s.d. P-33)
    P-20  Ikon informasi (i) memakai warna netral abu muda (assets/css/rab.css).
    P-21  Kolom Actions disederhanakan: satu ikon navigasi pada Category (buka

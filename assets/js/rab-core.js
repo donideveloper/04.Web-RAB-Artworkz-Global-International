@@ -596,12 +596,23 @@ function drawTable(cfg){
     tb.innerHTML = `<tr><td colspan="${cfg.columns.length + (showActs ? 1 : 0)}"><div class="empty">
       <strong>Data tidak ditemukan.</strong>Ubah kata kunci pencarian atau filter.</div></td></tr>`;
   } else {
+    /* rev-6 poin 24 (P-60): kolom kode menjadi tautan pembuka jendela Detail,
+       menggantikan ikon View pada kolom Actions. Kolom yang dijadikan tautan
+       adalah kolom kunci (cfg.idKey); bila kunci itu tidak muncul sebagai
+       kolom, dipakai kolom pertama. Tautan hanya dipasang bila menu tersebut
+       memang memiliki jendela Detail. */
+    const linkKey = linkColumn(cfg);
     tb.innerHTML = view.map((r, i) => `<tr data-i="${i}" class="${cfg.rowClass ? cfg.rowClass(r) : ''}">
-      ${cfg.columns.map(c => `<td class="${c.align || ''}">${c.render ? c.render(r) : esc(r[c.key] ?? '')}</td>`).join('')}
+      ${cfg.columns.map(c => {
+        const isi = c.render ? c.render(r) : esc(r[c.key] ?? '');
+        return `<td class="${c.align || ''}">${c.key === linkKey
+          ? `<a href="#" class="cell-link" data-view title="Lihat detail">${isi}</a>` : isi}</td>`;
+      }).join('')}
       ${showActs ? `<td><div class="row-acts">${rowActions(cfg, r).join('')}</div></td>` : ''}</tr>`).join('');
     $$('tbody tr', host).forEach((tr, i) => {
       const r = view[i];
       $$('[data-act]', tr).forEach(b => b.onclick = e => { e.stopPropagation(); runAction(cfg, b.dataset.act, r); });
+      $$('[data-view]', tr).forEach(a => a.onclick = e => { e.preventDefault(); e.stopPropagation(); runAction(cfg, 'view', r); });
       if (cfg.onRowClick) tr.onclick = () => cfg.onRowClick(r, tr);
     });
   }
@@ -643,10 +654,25 @@ const ACT_META = {
   approve:{ic: 'check',   t: 'Approve',   perm: 'approve'},
   reject: {ic: 'x',       t: 'Reject',    perm: 'approve', cls: 'danger'}
 };
+/* rev-6 poin 24 (P-60): kolom mana yang dijadikan tautan Detail.
+   Dipakai bersama oleh drawTable dan rowActions supaya keduanya tidak pernah
+   berbeda pendapat: bila kolomnya ada, ikon View dilepas; bila tidak ada
+   (menu tanpa jendela Detail), ikon View tetap seperti semula. */
+function linkColumn(cfg){
+  if (!cfg.detail) return null;
+  const k = cfg.columns.some(c => c.key === cfg.idKey) ? cfg.idKey : (cfg.columns[0] || {}).key;
+  return k || null;
+}
+
 function rowActions(cfg, r){
   const list = typeof cfg.actions === 'function' ? cfg.actions(r) : cfg.actions;
+  const adaTautan = !!linkColumn(cfg);
   return list.filter(a => {
-    const m = ACT_META[a.k || a] || {};
+    const k = a.k || a;
+    /* rev-6 poin 24 (P-60): ikon View dilepas dari kolom Actions karena
+       fungsinya sudah dipegang tautan pada kolom kode. */
+    if (k === 'view' && adaTautan) return false;
+    const m = ACT_META[k] || {};
     return can(cfg.perm, (a.perm || m.perm || 'view'));
   }).map(a => {
     const k = a.k || a, m = ACT_META[k] || {};
